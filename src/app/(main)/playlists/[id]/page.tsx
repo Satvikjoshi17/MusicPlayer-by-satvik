@@ -7,7 +7,7 @@ import { TrackItem } from '@/components/music/track-item';
 import { TrackListSkeleton } from '@/components/music/track-list-skeleton';
 import { usePlayer } from '@/hooks/use-player';
 import type { PlaylistTrack, Track } from '@/lib/types';
-import { Music, Trash2 } from 'lucide-react';
+import { Music, Trash2, ChevronLeft, Play, Shuffle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,13 +27,28 @@ export default function PlaylistDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const id = params.id as string;
-  const { playTrack } = usePlayer();
+  const { playTrack, toggleShuffle: togglePlayerShuffle, isShuffled } = usePlayer();
 
   const playlist = useLiveQuery(() => db.playlists.get(id), [id]);
 
   const handlePlay = (track: PlaylistTrack) => {
     if (playlist) {
       playTrack(track, playlist.tracks, { type: 'playlist', playlist });
+    }
+  };
+
+  const handlePlayAll = () => {
+    if (playlist && playlist.tracks.length > 0) {
+      if (isShuffled) togglePlayerShuffle(); // Turn off shuffle if it's on
+      playTrack(playlist.tracks[0], playlist.tracks, { type: 'playlist', playlist });
+    }
+  };
+
+  const handleShufflePlay = () => {
+    if (playlist && playlist.tracks.length > 0) {
+      if (!isShuffled) togglePlayerShuffle(); // Turn on shuffle if it's off
+      const shuffledTracks = [...playlist.tracks].sort(() => Math.random() - 0.5);
+      playTrack(shuffledTracks[0], shuffledTracks, { type: 'playlist', playlist });
     }
   };
 
@@ -61,16 +76,10 @@ export default function PlaylistDetailPage() {
     <div className="container mx-auto px-4 py-8 md:p-8">
       {playlist ? (
         <>
-          <div className="flex items-center justify-between gap-4 mb-8">
-            <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-primary/10 text-primary">
-                    <Music className="w-8 h-8" />
-                </div>
-                <div>
-                    <h1 className="text-3xl font-bold font-headline">{playlist.name}</h1>
-                    <p className="text-muted-foreground">{playlist.tracks.length} tracks</p>
-                </div>
-            </div>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                <ChevronLeft className="h-6 w-6" />
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="icon">
@@ -92,6 +101,26 @@ export default function PlaylistDetailPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </div>
+
+          <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4 mb-8">
+            <div className="p-3 rounded-full bg-primary/10 text-primary">
+                <Music className="w-12 h-12" />
+            </div>
+            <div>
+                <h1 className="text-4xl font-bold font-headline">{playlist.name}</h1>
+                <p className="text-muted-foreground">{playlist.tracks.length} tracks</p>
+            </div>
+            <div className="flex items-center gap-4 mt-4">
+              <Button onClick={handlePlayAll} disabled={playlist.tracks.length === 0} size="lg">
+                <Play className="mr-2 h-5 w-5 fill-current" />
+                Play All
+              </Button>
+              <Button onClick={handleShufflePlay} disabled={playlist.tracks.length === 0} variant="secondary" size="lg">
+                <Shuffle className="mr-2 h-5 w-5" />
+                Shuffle
+              </Button>
+            </div>
           </div>
           
           {playlist.tracks.length > 0 ? (
