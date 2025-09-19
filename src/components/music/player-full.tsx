@@ -126,7 +126,7 @@ export function PlayerFull() {
 
   return (
     <>
-      <div className="relative flex flex-col h-full w-full p-6 md:p-8 justify-between">
+      <div className="relative flex flex-col h-full w-full p-6 md:p-8 justify-between overflow-hidden">
         <div className="absolute inset-0 z-0">
           {currentTrack ? (
             <Image
@@ -176,7 +176,7 @@ export function PlayerFull() {
         </header>
         
         <main className="relative z-10 flex-1 flex flex-col justify-center items-center gap-8 py-8">
-          <div className="relative w-full max-w-sm aspect-square shadow-2xl rounded-lg overflow-hidden">
+          <div className="relative max-w-sm w-full aspect-square shadow-2xl rounded-lg overflow-hidden">
             {currentTrack ? (
               <Image
                 src={currentTrack.thumbnail || fallbackImage.imageUrl}
