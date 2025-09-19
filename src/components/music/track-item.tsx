@@ -147,7 +147,21 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
     toast({ title: 'Preparing Download', description: `Your download for "${track.title}" will begin shortly.` });
     try {
         const downloadUrl = getDownloadUrl(track.url);
-        window.open(downloadUrl, '_blank');
+        const response = await axios.get(downloadUrl, { responseType: 'blob' });
+        const blob = response.data as Blob;
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // Sanitize title for filename
+        const safeTitle = track.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+        a.download = `${safeTitle}.mp3`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        
+        toast({ title: 'Download Started', description: `"${track.title}" is downloading.` });
     } catch (error) {
         console.error("Download failed:", error);
         toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not download the track.' });
@@ -163,7 +177,6 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
     toast({ title: 'Saving for Offline', description: `Downloading "${track.title}"... This may take a moment.` });
     try {
         const downloadUrl = getDownloadUrl(track.url);
-        // We have to proxy the request to avoid CORS issues.
         const response = await axios.get(downloadUrl, { responseType: 'blob' });
         const blob = response.data as Blob;
 
