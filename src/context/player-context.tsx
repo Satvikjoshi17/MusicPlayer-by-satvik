@@ -9,7 +9,7 @@ import {
   type ReactNode 
 } from 'react';
 import { getStreamUrl } from '@/lib/api';
-import type { Track, DbPlaylist } from '@/lib/types';
+import type { Track, DbPlaylist, DbDownload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
 
@@ -50,6 +50,7 @@ export const PlayerContext = createContext<PlayerContextType | undefined>(undefi
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const currentBlobUrl = useRef<string | null>(null);
   const { toast } = useToast();
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -92,10 +93,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       addTrackToRecents(track);
+
+      // Clean up old blob URL if it exists
+      if (currentBlobUrl.current) {
+        URL.revokeObjectURL(currentBlobUrl.current);
+        currentBlobUrl.current = null;
+      }
       
       try {
-        const { streamUrl } = await getStreamUrl(track.url);
-        audioRef.current.src = streamUrl;
+        let finalStreamUrl: string;
+        const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
+
+        if (downloadedTrack?.blob) {
+          console.log("Playing from IndexedDB blob");
+          finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
+          currentBlobUrl.current = finalStreamUrl; // Keep track of it to revoke later
+        } else {
+          console.log("Streaming from API");
+          const { streamUrl } = await getStreamUrl(track.url);
+          finalStreamUrl = streamUrl;
+        }
+        
+        audioRef.current.src = finalStreamUrl;
         await audioRef.current.play();
       } catch (error) {
         console.error('Failed to get stream URL', error);
@@ -238,6 +257,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
+
+  // Clean up blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (currentBlobUrl.current) {
+        URL.revokeObjectURL(currentBlobUrl.current);
+      }
+    };
+  }, []);
   
   const value = {
     audioRef,

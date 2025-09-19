@@ -32,6 +32,8 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
+import axios from 'axios';
+import { getStreamUrl } from '@/lib/api';
 
 type TrackItemContext = 
   | { type: 'search' }
@@ -149,12 +151,15 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
 
     toast({ title: 'Starting Download', description: `Downloading "${track.title}"...` });
     try {
-        // This is a placeholder for a real download implementation
+        const { streamUrl } = await getStreamUrl(track.url);
+        const response = await axios.get(streamUrl, { responseType: 'blob' });
+        const blob = response.data as Blob;
+
         await db.downloads.add({
             ...track,
-            blob: new Blob(),
-            mimeType: 'audio/mp4',
-            size: 0,
+            blob: blob,
+            mimeType: blob.type,
+            size: blob.size,
             downloadedAt: new Date().toISOString(),
             originalUrl: track.url,
         });
