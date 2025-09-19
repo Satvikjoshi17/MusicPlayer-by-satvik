@@ -18,12 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuPortal,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
