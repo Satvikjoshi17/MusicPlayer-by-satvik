@@ -82,23 +82,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audioRef.current) return;
 
     setIsLoading(true);
-    // Pause immediately to stop current track sound
     audioRef.current.pause();
 
-    // Revoke old blob URL if it exists
     if (currentBlobUrl.current) {
         URL.revokeObjectURL(currentBlobUrl.current);
         currentBlobUrl.current = null;
     }
 
+    // Determine if this is a new context or playing from the same queue
+    const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || playlist.map(t => t.id).join() !== queue.map(t => t.id).join();
+
     setCurrentTrack(track);
     setSource(sourceInfo);
     
-    const newQueue = playlist.length > 0 ? playlist : [track];
-    setQueue(newQueue);
-    if (isShuffled) {
-      const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
-      setShuffledQueue(shuffled);
+    if (isNewContext) {
+      const newQueue = playlist.length > 0 ? playlist : [track];
+      setQueue(newQueue);
+      if (isShuffled) {
+        const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
+        // Place the current track at the beginning of the shuffled queue
+        const currentIndex = shuffled.findIndex(t => t.id === track.id);
+        if (currentIndex > 0) {
+          const [current] = shuffled.splice(currentIndex, 1);
+          shuffled.unshift(current);
+        }
+        setShuffledQueue(shuffled);
+      }
     }
 
     addTrackToRecents(track);
@@ -108,11 +117,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
 
         if (downloadedTrack?.blob) {
-            console.log("Playing from IndexedDB blob");
             finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
-            currentBlobUrl.current = finalStreamUrl; // Keep track to revoke later
+            currentBlobUrl.current = finalStreamUrl;
         } else {
-            console.log("Streaming from API");
             const { streamUrl } = await getStreamUrl(track.url);
             finalStreamUrl = streamUrl;
         }
@@ -130,7 +137,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setCurrentTrack(null);
         setIsLoading(false);
     }
-}, [toast, isShuffled]);
+}, [toast, isShuffled, queue, source]);
   
   const togglePlay = useCallback(() => {
     if (audioRef.current && currentTrack) {
@@ -152,7 +159,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         nextIndex = 0;
       } else {
         setIsPlaying(false);
-        return; // End of queue
+        return;
       }
     }
     playTrack(activeQueue[nextIndex], queue, source);
@@ -178,7 +185,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     let prevIndex = currentIndex - 1;
     if (prevIndex < 0) {
         if (loopMode === 'queue') {
-            prevIndex = activeQueue.length - 1; // Loop to end
+            prevIndex = activeQueue.length - 1;
         } else {
             if (audioRef.current) audioRef.current.currentTime = 0;
             return;
@@ -198,6 +205,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setIsShuffled(newState);
     if (newState) {
         const shuffled = [...queue].sort(() => Math.random() - 0.5);
+        if (currentTrack) {
+          // Keep the current track at the top of the new shuffled queue
+          const currentIndex = shuffled.findIndex(t => t.id === currentTrack.id);
+          if (currentIndex > 0) {
+            const [current] = shuffled.splice(currentIndex, 1);
+            shuffled.unshift(current);
+          }
+        }
         setShuffledQueue(shuffled);
     }
   };
@@ -215,7 +230,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audio) return;
 
     const handleTimeUpdate = () => {
-      if (!isSeeking && isFinite(audio.duration)) {
+      if (!isSeeking && isFinite(audio.duration) && audio.duration > 0) {
         setProgress(audio.currentTime / audio.duration);
         if (currentTrack && audio.currentTime > 0) {
             db.recent.update(currentTrack.id, { position: audio.currentTime }).catch(() => {});
