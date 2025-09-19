@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode 
 } from 'react';
-import { getStreamUrl, getDownloadUrl } from '@/lib/api';
+import { getStreamUrl } from '@/lib/api';
 import type { Track, DbPlaylist, DbDownload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
@@ -66,6 +66,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [loopMode, setLoopMode] = useState<LoopMode>('off');
   const [isSeeking, setIsSeeking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const updatePositionState = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio && 'mediaSession' in navigator && isFinite(audio.duration)) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate,
+          position: audio.currentTime,
+        });
+      } catch (error) {
+        // setPositionState can fail if media metadata is not set or on some browsers.
+      }
+    }
+  }, []);
 
   const addTrackToRecents = async (track: Track) => {
     try {
@@ -95,15 +110,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   
       const newQueue = isNewContext && playlist.length > 0 ? playlist : (isNewContext ? [track] : queue);
       
+      let finalQueue = newQueue;
       const currentTrackIndexInNewQueue = newQueue.findIndex(t => t.id === track.id);
-      const reorderedQueue = [...newQueue.slice(currentTrackIndexInNewQueue), ...newQueue.slice(0, currentTrackIndexInNewQueue)];
       
-      setQueue(reorderedQueue);
+      if (currentTrackIndexInNewQueue > 0) {
+        finalQueue = [...newQueue.slice(currentTrackIndexInNewQueue), ...newQueue.slice(0, currentTrackIndexInNewQueue)];
+      }
+      
+      setQueue(finalQueue);
       setCurrentTrack(track);
       setSource(sourceInfo);
       
       if (isShuffled) {
-        const shuffled = [...reorderedQueue].sort(() => Math.random() - 0.5);
+        const shuffled = [...finalQueue].sort(() => Math.random() - 0.5);
         const currentIndex = shuffled.findIndex(t => t.id === track.id);
         if (currentIndex > -1) {
           const [current] = shuffled.splice(currentIndex, 1);
@@ -210,6 +229,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const seek = (newProgress: number) => {
     if (audioRef.current && isFinite(duration)) {
       audioRef.current.currentTime = duration * newProgress;
+      // Immediately update progress state for UI responsiveness
+      setProgress(newProgress); 
     }
   };
 
@@ -260,13 +281,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           navigator.mediaSession.setActionHandler('pause', togglePlay);
           navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
           navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+          // Seeking handlers
+          navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+            const skipTime = details.seekOffset || 10;
+            if (audioRef.current) audioRef.current.currentTime = Math.max(audioRef.current.currentTime - skipTime, 0);
+          });
+          navigator.mediaSession.setActionHandler('seekforward', (details) => {
+            const skipTime = details.seekOffset || 10;
+            if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.currentTime + skipTime, duration);
+          });
+           navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (audioRef.current && details.seekTime !== null && details.seekTime !== undefined) {
+              audioRef.current.currentTime = details.seekTime;
+            }
+          });
         } catch (error) {
           console.error('Error setting media session action handlers:', error);
         }
 
       }
     }
-  }, [currentTrack, togglePlay, skipPrev, skipNext]);
+  }, [currentTrack, togglePlay, skipPrev, skipNext, duration]);
   
   useEffect(() => {
     if ('mediaSession' in navigator) {
@@ -274,23 +309,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying]);
 
+  // This effect ensures the MediaSession position is updated when seeking.
+  useEffect(() => {
+    updatePositionState();
+  }, [progress, updatePositionState]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    const updatePositionState = () => {
-      if ('mediaSession' in navigator && isFinite(audio.duration)) {
-        try {
-          navigator.mediaSession.setPositionState({
-            duration: audio.duration,
-            playbackRate: audio.playbackRate,
-            position: audio.currentTime,
-          });
-        } catch (error) {
-          // setPositionState can fail if media metadata is not set.
-        }
-      }
-    };
 
     const handleTimeUpdate = () => {
       if (!isSeeking && isFinite(audio.duration) && audio.duration > 0) {
@@ -333,7 +359,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('waiting', handleWaiting);
       audio.removeEventListener('canplay', handleCanPlay);
     };
-  }, [handleTrackEnd, isSeeking, currentTrack]);
+  }, [handleTrackEnd, isSeeking, currentTrack, updatePositionState]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -376,10 +402,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   return (
     <PlayerContext.Provider value={value}>
-      <audio ref={audioRef} />
       {children}
     </PlayerContext.Provider>
   );
 }
-
-    
