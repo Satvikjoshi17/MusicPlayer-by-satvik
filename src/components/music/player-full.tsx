@@ -20,6 +20,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from '../ui/dropdown-menu';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -53,7 +57,7 @@ function getPlayerSource(source: PlayerContextSource) {
 
 export function PlayerFull() {
   const router = useRouter();
-  const { currentTrack, volume, setVolume, source, queue, playTrack } = usePlayer();
+  const { currentTrack, volume, setVolume, source, playQueue, playTrack, queue } = usePlayer();
   const { toast } = useToast();
   const playlists = useLiveQuery(() => db.playlists.toArray(), []);
   
@@ -167,7 +171,7 @@ export function PlayerFull() {
                 <SheetTitle>Up Next</SheetTitle>
               </SheetHeader>
               <QueueList 
-                tracks={queue} 
+                tracks={playQueue} 
                 currentTrackId={currentTrack?.id} 
                 onSelectTrack={handleSelectTrack}
               />
@@ -216,19 +220,29 @@ export function PlayerFull() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    <span>New playlist</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {playlists?.map((playlist) => (
-                    <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
-                      <span>{playlist.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                  {playlists?.length === 0 && (
-                    <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
-                  )}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <ListPlus className="mr-2 h-4 w-4" />
+                      <span>Add to playlist</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          <span>New playlist</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {playlists?.map((playlist) => (
+                          <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
+                            <span>{playlist.name}</span>
+                          </DropdownMenuItem>
+                        ))}
+                        {playlists?.length === 0 && (
+                          <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
+                        )}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
                 </DropdownMenuContent>
               </DropdownMenu>
 

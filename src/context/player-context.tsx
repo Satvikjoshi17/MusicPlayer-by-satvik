@@ -6,6 +6,7 @@ import {
   useRef, 
   useEffect, 
   useCallback,
+  useContext,
   type ReactNode 
 } from 'react';
 import { getStreamUrl } from '@/lib/api';
@@ -26,7 +27,8 @@ export type PlayerContextSource =
 type PlayerContextType = {
   audioRef: React.RefObject<HTMLAudioElement>;
   currentTrack: Track | null;
-  queue: Track[];
+  queue: Track[]; // The original full playlist/context
+  playQueue: Track[]; // The queue of tracks to be played (current + up next)
   source: PlayerContextSource;
   isPlaying: boolean;
   duration: number;
@@ -49,15 +51,15 @@ type PlayerContextType = {
 
 export const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
-export function PlayerProvider({ children }: { children: ReactNode }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
+export function PlayerProvider({ children, audioRef }: { children: ReactNode, audioRef: React.RefObject<HTMLAudioElement> }) {
   const currentBlobUrl = useRef<string | null>(null);
   const { toast } = useToast();
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
+  const [playQueue, setPlayQueue] = useState<Track[]>([]);
   const [source, setSource] = useState<PlayerContextSource>({ type: 'unknown' });
-  const [shuffledQueue, setShuffledQueue] = useState<Track[]>([]);
+  const [shuffledPlayQueue, setShuffledPlayQueue] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -80,7 +82,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         // setPositionState can fail if media metadata is not set or on some browsers.
       }
     }
-  }, []);
+  }, [audioRef]);
 
   const addTrackToRecents = async (track: Track) => {
     try {
@@ -94,105 +96,103 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const playTrack = useCallback((track: Track, playlist: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
+  const playTrack = useCallback((track: Track, newQueue: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
     if (!audioRef.current) return;
-  
+
+    setIsLoading(true);
+    
+    const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
+    
+    if (isNewContext) {
+        setQueue(newQueue.length > 0 ? newQueue : [track]);
+        setSource(sourceInfo);
+    }
+    
+    const targetQueue = isNewContext ? (newQueue.length > 0 ? newQueue : [track]) : queue;
+    const trackIndex = targetQueue.findIndex(t => t.id === track.id);
+    const newPlayQueue = trackIndex !== -1 ? targetQueue.slice(trackIndex) : [track];
+    
+    setPlayQueue(newPlayQueue);
+    setCurrentTrack(track);
+    addTrackToRecents(track);
+
+    if (isShuffled) {
+        // Reshuffle the new play queue, keeping the current track at the top
+        const otherTracks = newPlayQueue.filter(t => t.id !== track.id);
+        const shuffled = [...otherTracks].sort(() => Math.random() - 0.5);
+        shuffled.unshift(track);
+        setShuffledPlayQueue(shuffled);
+    } else {
+        setShuffledPlayQueue([]);
+    }
+
     const playAudio = async () => {
-      setIsLoading(true);
-      audioRef.current!.pause();
-  
-      if (currentBlobUrl.current) {
-          URL.revokeObjectURL(currentBlobUrl.current);
-          currentBlobUrl.current = null;
-      }
-  
-      const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || playlist.map(t => t.id).join() !== queue.map(t => t.id).join();
-  
-      const newQueue = isNewContext && playlist.length > 0 ? playlist : (isNewContext ? [track] : queue);
-      
-      let finalQueue = newQueue;
-      const currentTrackIndexInNewQueue = newQueue.findIndex(t => t.id === track.id);
-      
-      if (currentTrackIndexInNewQueue > 0) {
-        finalQueue = [...newQueue.slice(currentTrackIndexInNewQueue), ...newQueue.slice(0, currentTrackIndexInNewQueue)];
-      }
-      
-      setQueue(finalQueue);
-      setCurrentTrack(track);
-      setSource(sourceInfo);
-      
-      if (isShuffled) {
-        const shuffled = [...finalQueue].sort(() => Math.random() - 0.5);
-        const currentIndex = shuffled.findIndex(t => t.id === track.id);
-        if (currentIndex > -1) {
-          const [current] = shuffled.splice(currentIndex, 1);
-          shuffled.unshift(current);
+        if (!audioRef.current) return;
+        audioRef.current.pause();
+
+        if (currentBlobUrl.current) {
+            URL.revokeObjectURL(currentBlobUrl.current);
+            currentBlobUrl.current = null;
         }
-        setShuffledQueue(shuffled);
-      } else {
-        setShuffledQueue([]);
-      }
-  
-      addTrackToRecents(track);
-      
-      try {
-          let finalStreamUrl: string;
-          const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
-  
-          if (downloadedTrack?.blob) {
-              finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
-              currentBlobUrl.current = finalStreamUrl;
-          } else {
-              const { streamUrl } = await getStreamUrl(track.url);
-              finalStreamUrl = streamUrl;
-          }
-          
-          audioRef.current!.src = finalStreamUrl;
-          await audioRef.current!.play();
-  
-      } catch (error) {
-          console.error('Failed to get stream URL', error);
-          toast({
-              variant: "destructive",
-              title: "Playback Error",
-              description: "Could not stream the selected track.",
-          });
-          setCurrentTrack(null);
-          setIsLoading(false);
-      }
+
+        try {
+            let finalStreamUrl: string;
+            const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
+
+            if (downloadedTrack?.blob) {
+                finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
+                currentBlobUrl.current = finalStreamUrl;
+            } else {
+                const { streamUrl } = await getStreamUrl(track.url);
+                finalStreamUrl = streamUrl;
+            }
+            
+            audioRef.current.src = finalStreamUrl;
+            await audioRef.current.play();
+
+        } catch (error) {
+            console.error('Failed to get stream URL', error);
+            toast({
+                variant: "destructive",
+                title: "Playback Error",
+                description: "Could not stream the selected track.",
+            });
+            setCurrentTrack(null);
+            setIsLoading(false);
+        }
     };
-  
+
     playAudio();
-  }, [toast, isShuffled, queue, source]);
+  }, [audioRef, toast, isShuffled, queue, source]);
   
   const togglePlay = useCallback(() => {
     if (audioRef.current && currentTrack) {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audio.current.play();
       }
     }
-  }, [isPlaying, currentTrack]);
+  }, [audioRef, isPlaying, currentTrack]);
   
   const skipNext = useCallback(() => {
-    if (!currentTrack) return;
-    const activeQueue = isShuffled ? shuffledQueue : queue;
-    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack.id);
-    let nextIndex = currentIndex + 1;
-    if (nextIndex >= activeQueue.length) {
-      if (loopMode === 'queue') {
-        nextIndex = 0;
-      } else {
-        setIsPlaying(false);
-        return;
-      }
+    const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
+    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
+
+    if (currentIndex === -1 || currentIndex === activeQueue.length - 1) {
+       if (loopMode === 'queue' && queue.length > 0) {
+         playTrack(queue[0], queue, source);
+       } else {
+         setIsPlaying(false);
+         if(audioRef.current) audioRef.current.currentTime = duration;
+       }
+       return;
     }
-    const nextTrack = activeQueue[nextIndex];
-    if (nextTrack) {
-        playTrack(nextTrack, queue, source);
-    }
-  }, [currentTrack, queue, isShuffled, shuffledQueue, loopMode, playTrack, source]);
+    
+    const nextTrack = activeQueue[currentIndex + 1];
+    playTrack(nextTrack, queue, source);
+
+  }, [isShuffled, shuffledPlayQueue, playQueue, loopMode, queue, playTrack, source, duration, audioRef, currentTrack]);
 
   const handleTrackEnd = useCallback(() => {
     if (loopMode === 'single' && currentTrack && audioRef.current) {
@@ -201,54 +201,53 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } else {
       skipNext();
     }
-  }, [loopMode, skipNext, currentTrack]);
+  }, [loopMode, skipNext, currentTrack, audioRef]);
   
   const skipPrev = useCallback(() => {
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       return;
     }
-    if (!currentTrack) return;
-    const activeQueue = isShuffled ? shuffledQueue : queue;
-    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack.id);
-    let prevIndex = currentIndex - 1;
-    if (prevIndex < 0) {
-        if (loopMode === 'queue') {
-            prevIndex = activeQueue.length - 1;
+
+    const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
+    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
+
+    if (currentIndex <= 0) {
+        if (loopMode === 'queue' && queue.length > 0) {
+            playTrack(queue[queue.length-1], queue, source);
         } else {
             if (audioRef.current) audioRef.current.currentTime = 0;
-            return;
         }
+        return;
     }
-    const prevTrack = activeQueue[prevIndex];
-    if (prevTrack) {
-        playTrack(prevTrack, queue, source);
-    }
-  }, [currentTrack, queue, isShuffled, shuffledQueue, playTrack, loopMode, source]);
+    
+    const prevTrack = activeQueue[currentIndex - 1];
+    playTrack(prevTrack, queue, source);
+
+  }, [currentTrack, queue, playTrack, loopMode, source, audioRef, isShuffled, shuffledPlayQueue, playQueue]);
   
   const seek = (newProgress: number) => {
     if (audioRef.current && isFinite(duration)) {
       audioRef.current.currentTime = duration * newProgress;
-      // Immediately update progress state for UI responsiveness
-      setProgress(newProgress); 
+      setProgress(newProgress);
     }
   };
 
-  const toggleShuffle = () => {
+  const toggleShuffle = useCallback(() => {
     const newState = !isShuffled;
     setIsShuffled(newState);
+
     if (newState) {
-        const shuffled = [...queue].sort(() => Math.random() - 0.5);
+        const otherTracks = playQueue.filter(t => t.id !== currentTrack?.id);
+        const shuffled = [...otherTracks].sort(() => Math.random() - 0.5);
         if (currentTrack) {
-          const currentIndex = shuffled.findIndex(t => t.id === currentTrack.id);
-          if (currentIndex > 0) {
-            const [current] = shuffled.splice(currentIndex, 1);
-            shuffled.unshift(current);
-          }
+          shuffled.unshift(currentTrack);
         }
-        setShuffledQueue(shuffled);
+        setShuffledPlayQueue(shuffled);
+    } else {
+        setShuffledPlayQueue([]);
     }
-  };
+  }, [isShuffled, playQueue, currentTrack]);
 
   const toggleLoopMode = () => {
     setLoopMode(prev => {
@@ -281,18 +280,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           navigator.mediaSession.setActionHandler('pause', togglePlay);
           navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
           navigator.mediaSession.setActionHandler('nexttrack', skipNext);
-          // Seeking handlers
           navigator.mediaSession.setActionHandler('seekbackward', (details) => {
             const skipTime = details.seekOffset || 10;
             if (audioRef.current) audioRef.current.currentTime = Math.max(audioRef.current.currentTime - skipTime, 0);
+            updatePositionState();
           });
           navigator.mediaSession.setActionHandler('seekforward', (details) => {
             const skipTime = details.seekOffset || 10;
             if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.currentTime + skipTime, duration);
+            updatePositionState();
           });
            navigator.mediaSession.setActionHandler('seekto', (details) => {
             if (audioRef.current && details.seekTime !== null && details.seekTime !== undefined) {
               audioRef.current.currentTime = details.seekTime;
+              updatePositionState();
             }
           });
         } catch (error) {
@@ -301,7 +302,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       }
     }
-  }, [currentTrack, togglePlay, skipPrev, skipNext, duration]);
+  }, [currentTrack, togglePlay, skipPrev, skipNext, duration, audioRef, updatePositionState]);
   
   useEffect(() => {
     if ('mediaSession' in navigator) {
@@ -309,7 +310,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying]);
 
-  // This effect ensures the MediaSession position is updated when seeking.
   useEffect(() => {
     updatePositionState();
   }, [progress, updatePositionState]);
@@ -359,15 +359,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('waiting', handleWaiting);
       audio.removeEventListener('canplay', handleCanPlay);
     };
-  }, [handleTrackEnd, isSeeking, currentTrack, updatePositionState]);
+  }, [handleTrackEnd, isSeeking, currentTrack, updatePositionState, audioRef]);
+  
+  useEffect(() => {
+    updatePositionState();
+  }, [progress, updatePositionState]);
 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
-  }, [volume]);
+  }, [volume, audioRef]);
 
-  // Clean up blob URL on unmount
   useEffect(() => {
     return () => {
       if (currentBlobUrl.current) {
@@ -380,6 +383,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audioRef,
     currentTrack,
     queue,
+    playQueue,
     source,
     isPlaying,
     duration,
@@ -405,4 +409,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       {children}
     </PlayerContext.Provider>
   );
+}
+
+export function PlayerWrapper({ children }: { children: ReactNode }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  return (
+    <PlayerProvider audioRef={audioRef}>
+      <>
+        {children}
+        <audio ref={audioRef} />
+      </>
+    </PlayerProvider>
+  )
 }
