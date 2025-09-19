@@ -79,66 +79,76 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const playTrack = useCallback(async (track: Track, playlist: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
+  const playTrack = useCallback((track: Track, playlist: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
     if (!audioRef.current) return;
-
-    setIsLoading(true);
-    audioRef.current.pause();
-
-    if (currentBlobUrl.current) {
-        URL.revokeObjectURL(currentBlobUrl.current);
-        currentBlobUrl.current = null;
-    }
-
-    // Determine if this is a new context or playing from the same queue
-    const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || playlist.map(t => t.id).join() !== queue.map(t => t.id).join();
-
-    setCurrentTrack(track);
-    setSource(sourceInfo);
-    
-    if (isNewContext) {
-      const newQueue = playlist.length > 0 ? playlist : [track];
-      setQueue(newQueue);
-      if (isShuffled) {
-        const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
-        // Place the current track at the beginning of the shuffled queue
-        const currentIndex = shuffled.findIndex(t => t.id === track.id);
-        if (currentIndex > 0) {
-          const [current] = shuffled.splice(currentIndex, 1);
-          shuffled.unshift(current);
-        }
-        setShuffledQueue(shuffled);
+  
+    const playAudio = async () => {
+      setIsLoading(true);
+      audioRef.current!.pause();
+  
+      if (currentBlobUrl.current) {
+          URL.revokeObjectURL(currentBlobUrl.current);
+          currentBlobUrl.current = null;
       }
-    }
-
-    addTrackToRecents(track);
-    
-    try {
-        let finalStreamUrl: string;
-        const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
-
-        if (downloadedTrack?.blob) {
-            finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
-            currentBlobUrl.current = finalStreamUrl;
+  
+      // Determine if this is a new context or playing from the same queue
+      const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || playlist.map(t => t.id).join() !== queue.map(t => t.id).join();
+  
+      setCurrentTrack(track);
+      setSource(sourceInfo);
+      
+      if (isNewContext) {
+        const newQueue = playlist.length > 0 ? playlist : [track];
+        setQueue(newQueue);
+        if (isShuffled) {
+          const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
+          // Place the current track at the beginning of the shuffled queue
+          const currentIndex = shuffled.findIndex(t => t.id === track.id);
+          if (currentIndex > -1) { // Ensure track is in the shuffled list
+            const [current] = shuffled.splice(currentIndex, 1);
+            shuffled.unshift(current);
+          }
+          setShuffledQueue(shuffled);
         } else {
-            const { streamUrl } = await getStreamUrl(track.url);
-            finalStreamUrl = streamUrl;
+          // If not shuffled, ensure the queue is in the correct order for playback
+          setShuffledQueue([]); 
         }
-        
-        audioRef.current.src = finalStreamUrl;
-        await audioRef.current.play();
-
-    } catch (error) {
-        console.error('Failed to get stream URL', error);
-        toast({
-            variant: "destructive",
-            title: "Playback Error",
-            description: "Could not stream the selected track.",
-        });
-        setCurrentTrack(null);
-        setIsLoading(false);
-    }
-}, [toast, isShuffled, queue, source]);
+      } else {
+        // If same context, just update the current track
+        // The queue remains the same.
+      }
+  
+      addTrackToRecents(track);
+      
+      try {
+          let finalStreamUrl: string;
+          const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
+  
+          if (downloadedTrack?.blob) {
+              finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
+              currentBlobUrl.current = finalStreamUrl;
+          } else {
+              const { streamUrl } = await getStreamUrl(track.url);
+              finalStreamUrl = streamUrl;
+          }
+          
+          audioRef.current!.src = finalStreamUrl;
+          await audioRef.current!.play();
+  
+      } catch (error) {
+          console.error('Failed to get stream URL', error);
+          toast({
+              variant: "destructive",
+              title: "Playback Error",
+              description: "Could not stream the selected track.",
+          });
+          setCurrentTrack(null);
+          setIsLoading(false);
+      }
+    };
+  
+    playAudio();
+  }, [toast, isShuffled, queue, source]);
   
   const togglePlay = useCallback(() => {
     if (audioRef.current && currentTrack) {
@@ -226,9 +236,51 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // MediaSession API integration
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      if (currentTrack) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          album: 'satvikx',
+          artwork: [
+            { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail, sizes: '192x192', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail, sizes: '384x384', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+          ],
+        });
+        
+        navigator.mediaSession.setActionHandler('play', togglePlay);
+        navigator.mediaSession.setActionHandler('pause', togglePlay);
+        navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
+        navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+      }
+    }
+  }, [currentTrack, togglePlay, skipPrev, skipNext]);
+  
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    const updatePositionState = () => {
+      if ('mediaSession' in navigator && isFinite(audio.duration)) {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate,
+          position: audio.currentTime,
+        });
+      }
+    };
 
     const handleTimeUpdate = () => {
       if (!isSeeking && isFinite(audio.duration) && audio.duration > 0) {
@@ -237,10 +289,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             db.recent.update(currentTrack.id, { position: audio.currentTime }).catch(() => {});
         }
       }
+      updatePositionState();
     };
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
       setIsLoading(false);
+      updatePositionState();
     }
     const handlePlay = () => {
       setIsPlaying(true);
