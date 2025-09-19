@@ -70,6 +70,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   const updatePositionState = useCallback(() => {
     const audio = audioRef.current;
     if (audio && 'mediaSession' in navigator && isFinite(audio.duration)) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
       try {
         navigator.mediaSession.setPositionState({
           duration: audio.duration,
@@ -80,7 +81,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
         // setPositionState can fail if media metadata is not set or on some browsers.
       }
     }
-  }, [audioRef]);
+  }, [audioRef, isPlaying]);
 
   const addTrackToRecents = async (track: Track) => {
     try {
@@ -303,13 +304,13 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   }, [currentTrack, togglePlay, skipPrev, skipNext, duration, audioRef, updatePositionState]);
   
   useEffect(() => {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }
-  }, [isPlaying]);
+    updatePositionState();
+  }, [isPlaying, updatePositionState]);
 
   useEffect(() => {
-    updatePositionState();
+    if (progress > 0) {
+      updatePositionState();
+    }
   }, [progress, updatePositionState]);
 
   useEffect(() => {
