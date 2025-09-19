@@ -1,11 +1,13 @@
 import type { SearchResponse, StreamResponse, Track } from './types';
 
-const API_BASE_URL = 'https://musicplayerbackend-us5o.onrender.com/api';
+const API_BASE_URL = 'https://musicplayerbackend-us5o.onrender.com';
 
 export async function searchTracks(query: string): Promise<Track[]> {
   if (!query) return [];
 
-  const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`);
+  // The backend endpoint is /api/search/ but the base URL already ends with /api
+  // So we just need to call search/
+  const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
   if (!response.ok) {
     throw new Error('Failed to fetch search results');
   }
@@ -14,7 +16,7 @@ export async function searchTracks(query: string): Promise<Track[]> {
 }
 
 export async function getStreamUrl(youtubeUrl: string): Promise<StreamResponse> {
-  const response = await fetch(`${API_BASE_URL}/stream?url=${encodeURIComponent(youtubeUrl)}`);
+  const response = await fetch(`${API_BASE_URL}/api/stream?url=${encodeURIComponent(youtubeUrl)}`);
   if (!response.ok) {
     throw new Error('Failed to get stream URL');
   }
