@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
 import axios from 'axios';
-import { getStreamUrl } from '@/lib/api';
+import { getStreamUrl, getDownloadUrl } from '@/lib/api';
 
 type TrackItemContext = 
   | { type: 'search' }
@@ -144,14 +144,26 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
   };
 
   const handleDownload = async () => {
+    toast({ title: 'Preparing Download', description: `Your download for "${track.title}" will begin shortly.` });
+    try {
+        const downloadUrl = getDownloadUrl(track.url);
+        window.open(downloadUrl, '_blank');
+    } catch (error) {
+        console.error("Download failed:", error);
+        toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not download the track.' });
+    }
+  };
+
+  const handleSaveForOffline = async () => {
     if (isDownloaded) {
-        toast({ title: 'Already Downloaded', description: 'You have already saved this track.' });
+        toast({ title: 'Already Saved', description: 'You have already saved this track for offline use.' });
         return;
     }
 
-    toast({ title: 'Starting Download', description: `Downloading "${track.title}"...` });
+    toast({ title: 'Saving for Offline', description: `Downloading "${track.title}"... This may take a moment.` });
     try {
         const { streamUrl } = await getStreamUrl(track.url);
+        // We have to proxy the request to avoid CORS issues.
         const response = await axios.get(streamUrl, { responseType: 'blob' });
         const blob = response.data as Blob;
 
@@ -163,10 +175,10 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
             downloadedAt: new Date().toISOString(),
             originalUrl: track.url,
         });
-        toast({ title: 'Download Complete', description: `"${track.title}" is saved for offline playback.` });
+        toast({ title: 'Saved for Offline', description: `"${track.title}" is now available for offline playback.` });
     } catch (error) {
-        console.error("Download failed:", error);
-        toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not download the track.' });
+        console.error("Offline save failed:", error);
+        toast({ variant: 'destructive', title: 'Offline Save Failed', description: 'Could not save the track for offline use due to a network or CORS issue.' });
     }
   };
 
@@ -261,15 +273,20 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
               
               <DropdownMenuSeparator />
               
+              <DropdownMenuItem onClick={handleDownload}>
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>Download MP3</span>
+              </DropdownMenuItem>
+
               {isDownloaded ? (
                  <DropdownMenuItem onClick={handleRemoveFromDownloads}>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Remove from downloads</span>
+                    <span>Remove from offline</span>
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={handleDownload}>
-                    <Download className="mr-2 h-4 w-4" />
-                    <span>Download</span>
+                <DropdownMenuItem onClick={handleSaveForOffline}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    <span>Save for offline</span>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

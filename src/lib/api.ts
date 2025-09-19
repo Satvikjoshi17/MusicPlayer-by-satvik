@@ -22,3 +22,7 @@ export async function getStreamUrl(youtubeUrl: string): Promise<StreamResponse> 
   }
   return response.json();
 }
+
+export function getDownloadUrl(youtubeUrl: string, quality: 'best' | 'medium' | 'worst' = 'best'): string {
+  return `${API_BASE_URL}/api/download?url=${encodeURIComponent(youtubeUrl)}&quality=${quality}`;
+}
