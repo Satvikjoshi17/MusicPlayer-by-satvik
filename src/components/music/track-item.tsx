@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
 import axios from 'axios';
-import { getStreamUrl, getDownloadUrl } from '@/lib/api';
+import { getDownloadUrl } from '@/lib/api';
 
 type TrackItemContext = 
   | { type: 'search' }
@@ -162,9 +162,9 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
 
     toast({ title: 'Saving for Offline', description: `Downloading "${track.title}"... This may take a moment.` });
     try {
-        const { streamUrl } = await getStreamUrl(track.url);
+        const downloadUrl = getDownloadUrl(track.url);
         // We have to proxy the request to avoid CORS issues.
-        const response = await axios.get(streamUrl, { responseType: 'blob' });
+        const response = await axios.get(downloadUrl, { responseType: 'blob' });
         const blob = response.data as Blob;
 
         await db.downloads.add({
