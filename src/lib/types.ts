@@ -21,26 +21,16 @@ export type StreamResponse = {
 
 
 // IndexedDB Schema Types
-export type DbDownload = {
-  id: string;
-  title: string;
-  artist: string;
+export type DbDownload = Track & {
   blob: Blob;
   mimeType: string;
   size: number;
-  duration: number;
-  thumbnail: string;
   downloadedAt: string; // ISO string
   originalUrl: string;
 };
 
-export type PlaylistTrack = {
-  id: string;
-  title: string;
-  artist: string;
-  duration: number;
-  thumbnail: string;
-  sourceUrl: string;
+export type PlaylistTrack = Track & {
+  addedAt: string; // ISO string
 };
 
 export type DbPlaylist = {
@@ -51,8 +41,7 @@ export type DbPlaylist = {
   tracks: PlaylistTrack[];
 };
 
-export type DbRecent = {
-  id: string;
+export type DbRecent = Track & {
   lastPlayedAt: string; // ISO string
   position: number;
 };

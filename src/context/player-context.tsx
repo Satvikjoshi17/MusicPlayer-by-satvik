@@ -11,6 +11,7 @@ import {
 import { getStreamUrl } from '@/lib/api';
 import type { Track } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/db';
 
 export type LoopMode = 'off' | 'queue' | 'single';
 
@@ -52,6 +53,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isShuffled, setIsShuffled] = useState(false);
   const [loopMode, setLoopMode] = useState<LoopMode>('off');
   const [isSeeking, setIsSeeking] = useState(false);
+
+  const addTrackToRecents = async (track: Track) => {
+    try {
+      await db.recent.put({
+        ...track,
+        lastPlayedAt: new Date().toISOString(),
+        position: 0,
+      });
+    } catch (error) {
+      console.error("Failed to add to recents:", error);
+    }
+  };
   
   const playTrack = useCallback(async (track: Track, playlist: Track[] = []) => {
     if (audioRef.current) {
@@ -59,6 +72,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setProgress(0);
       setCurrentTrack(track);
       setQueue(playlist.length > 0 ? playlist : [track]);
+      addTrackToRecents(track);
       
       try {
         const { streamUrl } = await getStreamUrl(track.url);
@@ -163,6 +177,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const handleTimeUpdate = () => {
       if (!isSeeking && isFinite(audio.duration)) {
         setProgress(audio.currentTime / audio.duration);
+        if (currentTrack && audio.currentTime > 0) {
+            db.recent.update(currentTrack.id, { position: audio.currentTime }).catch(() => {});
+        }
       }
     };
     const handleLoadedMetadata = () => setDuration(audio.duration);
@@ -182,7 +199,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
     };
-  }, [handleTrackEnd, isSeeking]);
+  }, [handleTrackEnd, isSeeking, currentTrack]);
 
   useEffect(() => {
     if (audioRef.current) {

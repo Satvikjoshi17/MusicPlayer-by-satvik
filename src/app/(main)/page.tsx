@@ -1,11 +1,52 @@
+'use client';
+
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { placeholderImages } from '@/lib/placeholder-images';
 import { SearchBar } from '@/components/music/search-bar';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
+import { usePlayer } from '@/hooks/use-player';
+import type { DbRecent, Track } from '@/lib/types';
+import { useMemo } from 'react';
 
 export default function HomePage() {
   const recommended = placeholderImages.slice(0, 4);
-  const recent = placeholderImages.slice(4, 8);
+  const { playTrack } = usePlayer();
+
+  const recentTracks = useLiveQuery(
+    () => db.recent.orderBy('lastPlayedAt').reverse().limit(4).toArray(),
+    []
+  );
+
+  const recentlyPlayedItems = useMemo(() => {
+    if (!recentTracks || recentTracks.length === 0) {
+      return placeholderImages.slice(4, 8);
+    }
+    return recentTracks.map((track, index) => ({
+      id: track.id,
+      description: track.title,
+      imageUrl: track.thumbnail || placeholderImages[(4 + index) % placeholderImages.length].imageUrl,
+      imageHint: "album cover",
+      track: track as Track,
+    }));
+  }, [recentTracks]);
+
+  const handlePlay = (item: DbRecent | { track: Track }) => {
+    let trackToPlay: Track;
+    if ('track' in item) {
+       trackToPlay = item.track;
+    } else {
+        trackToPlay = item as Track;
+    }
+    
+    const playlist = recentlyPlayedItems
+        .map(p => 'track' in p ? p.track : p as Track)
+        .filter((t): t is Track => !!t);
+
+    playTrack(trackToPlay, playlist);
+  };
+
 
   return (
     <div className="container mx-auto px-4 py-8 md:p-8 space-y-12">
@@ -25,8 +66,8 @@ export default function HomePage() {
       <section>
         <h2 className="text-2xl font-bold font-headline mb-4">Recommended For You</h2>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {recommended.map((item, index) => (
-            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group">
+          {recommended.map((item) => (
+            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer">
               <CardContent className="p-0">
                 <div className="aspect-square relative">
                   <Image
@@ -50,8 +91,8 @@ export default function HomePage() {
       <section>
         <h2 className="text-2xl font-bold font-headline mb-4">Recently Played</h2>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {recent.map((item) => (
-            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group">
+          {recentlyPlayedItems.map((item) => (
+            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer" onClick={() => handlePlay(item as any)}>
               <CardContent className="p-0">
                 <div className="aspect-square relative">
                   <Image
