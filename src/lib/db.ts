@@ -8,7 +8,7 @@ export class SatvikBeatsDB extends Dexie {
   settings!: Table<DbSetting, string>;
 
   constructor() {
-    super('satvik_music_db');
+    super('satvikx_music_db');
     this.version(1).stores({
       downloads: 'id, title, artist, downloadedAt',
       playlists: 'id, name, createdAt',

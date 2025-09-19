@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { PlayerProvider } from '@/context/player-context';
 
 export const metadata: Metadata = {
-  title: 'Satvik Beats',
+  title: 'satvikx',
   description: 'A dark-theme, mobile-first PWA music player.',
   manifest: '/manifest.json',
 };
