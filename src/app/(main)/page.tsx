@@ -9,8 +9,6 @@ import { usePlayer } from '@/hooks/use-player';
 import type { Track } from '@/lib/types';
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
 
 export default function HomePage() {
   const recommended = placeholderImages.slice(0, 4);
@@ -55,21 +53,9 @@ export default function HomePage() {
           Welcome to Satvik Beats
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Search, stream, and enjoy your favorite music.
+          Stream and enjoy your favorite music.
         </p>
       </header>
-
-      <div className="max-w-2xl mx-auto">
-        <Button 
-          variant="outline" 
-          size="lg" 
-          className="w-full justify-start text-muted-foreground h-12 text-base bg-secondary border-0 hover:bg-secondary/80 hover:text-muted-foreground"
-          onClick={() => router.push('/search')}
-        >
-          <Search className="mr-3 h-5 w-5" />
-          Search for songs, artists, albums...
-        </Button>
-      </div>
 
       <section>
         <h2 className="text-2xl font-bold font-headline mb-4">Recommended For You</h2>

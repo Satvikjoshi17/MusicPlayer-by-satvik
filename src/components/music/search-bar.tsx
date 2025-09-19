@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -12,26 +12,19 @@ type SearchBarProps = {
 
 export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebounce(query, 400);
 
   useEffect(() => {
-    if (pathname === '/search') {
-      if (debouncedQuery === '' && query === '') {
-        // If on search page and query is cleared, go home
-        router.push('/');
-      } else {
-        // Otherwise, update the URL with the new query
-        const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
-        router.replace(url); // Use replace to avoid polluting history
-      }
+    if (debouncedQuery === '' && initialQuery !== '') {
+      // If the query is cleared, go home
+      router.push('/');
     } else if (debouncedQuery) {
-      // If on another page (like home) and user types, go to search page
+      // Otherwise, update the URL with the new query
       const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
-      router.push(url);
+      router.replace(url); // Use replace to avoid polluting history
     }
-  }, [debouncedQuery, router, pathname, query]);
+  }, [debouncedQuery, initialQuery, router]);
 
   useEffect(() => {
     // Sync the input field if the query in the URL changes (e.g., browser back/forward)
