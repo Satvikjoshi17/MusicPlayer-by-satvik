@@ -17,24 +17,30 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const debouncedQuery = useDebounce(query, 400);
 
   useEffect(() => {
-    // If we are on the search page and the query is cleared, go back home
-    if (pathname === '/search' && query === '') {
-      router.push('/');
-      return;
-    }
-    
-    // Only navigate to search page if there is a query
-    if (debouncedQuery) {
+    // This effect handles navigation based on the debounced query
+    if (pathname === '/search') {
+      if (debouncedQuery === '' && query === '') {
+        // If on search page and query is cleared, go home
+        router.push('/');
+      } else {
+        // Otherwise, update the URL with the new query
+        const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
+        router.replace(url); // Use replace to avoid polluting history
+      }
+    } else if (debouncedQuery) {
+      // If on another page (like home) and user types, go to search page
       const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
       router.push(url);
     }
-  }, [debouncedQuery, query, router, pathname]);
+  }, [debouncedQuery, router, pathname]);
 
   useEffect(() => {
+    // Sync the input field if the query in the URL changes (e.g., browser back/forward)
     setQuery(initialQuery);
   }, [initialQuery]);
 
   const handleFocus = () => {
+    // When on the home page, focusing the search bar should navigate to the search page
     if (pathname !== '/search') {
       router.push('/search');
     }

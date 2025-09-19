@@ -21,7 +21,7 @@ export default function HomePage() {
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
-      return placeholderImages.slice(4, 8);
+      return placeholderImages.slice(4, 8).map(p => ({...p, isPlaceholder: true}));
     }
     return recentTracks.map((track, index) => ({
       id: track.id,
@@ -29,22 +29,19 @@ export default function HomePage() {
       imageUrl: track.thumbnail || placeholderImages[(4 + index) % placeholderImages.length].imageUrl,
       imageHint: "album cover",
       track: track as Track,
+      isPlaceholder: false,
     }));
   }, [recentTracks]);
 
-  const handlePlay = (item: DbRecent | { track: Track }) => {
-    let trackToPlay: Track;
-    if ('track' in item) {
-       trackToPlay = item.track;
-    } else {
-        trackToPlay = item as Track;
-    }
+  const handlePlay = (item: { track: Track, isPlaceholder?: boolean }) => {
+    if (item.isPlaceholder) return;
     
     const playlist = recentlyPlayedItems
-        .map(p => 'track' in p ? p.track : p as Track)
+        .filter(p => !p.isPlaceholder)
+        .map(p => p.track)
         .filter((t): t is Track => !!t);
 
-    playTrack(trackToPlay, playlist);
+    playTrack(item.track, playlist);
   };
 
 

@@ -26,6 +26,7 @@ type PlayerContextType = {
   isShuffled: boolean;
   loopMode: LoopMode;
   isSeeking: boolean;
+  isLoading: boolean;
   playTrack: (track: Track, playlist?: Track[]) => void;
   togglePlay: () => void;
   seek: (progress: number) => void;
@@ -53,6 +54,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isShuffled, setIsShuffled] = useState(false);
   const [loopMode, setLoopMode] = useState<LoopMode>('off');
   const [isSeeking, setIsSeeking] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const addTrackToRecents = async (track: Track) => {
     try {
@@ -68,17 +70,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   
   const playTrack = useCallback(async (track: Track, playlist: Track[] = []) => {
     if (audioRef.current) {
+      setIsLoading(true);
       setIsPlaying(false);
-      setProgress(0);
       setCurrentTrack(track);
-      setQueue(playlist.length > 0 ? playlist : [track]);
+      
+      const newQueue = playlist.length > 0 ? playlist : [track];
+      setQueue(newQueue);
+      if (isShuffled) {
+        const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
+        setShuffledQueue(shuffled);
+      }
+
       addTrackToRecents(track);
       
       try {
         const { streamUrl } = await getStreamUrl(track.url);
         audioRef.current.src = streamUrl;
-        audioRef.current.play();
-        setIsPlaying(true);
+        await audioRef.current.play();
       } catch (error) {
         console.error('Failed to get stream URL', error);
         toast({
@@ -86,19 +94,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           title: "Playback Error",
           description: "Could not stream the selected track.",
         });
-        setIsPlaying(false);
+        setCurrentTrack(null);
+        setIsLoading(false);
       }
     }
-  }, [toast]);
+  }, [toast, isShuffled]);
   
   const togglePlay = useCallback(() => {
-    if (audioRef.current) {
+    if (audioRef.current && currentTrack) {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        if (currentTrack) audioRef.current.play();
+        audioRef.current.play();
       }
-      setIsPlaying(!isPlaying);
     }
   }, [isPlaying, currentTrack]);
   
@@ -119,11 +127,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [currentTrack, queue, isShuffled, shuffledQueue, loopMode, playTrack]);
 
   const handleTrackEnd = useCallback(() => {
-    if (loopMode === 'single' && currentTrack) {
-        if(audioRef.current) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play();
-        }
+    if (loopMode === 'single' && currentTrack && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play();
     } else {
       skipNext();
     }
@@ -139,27 +145,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const currentIndex = activeQueue.findIndex(t => t.id === currentTrack.id);
     let prevIndex = currentIndex - 1;
     if (prevIndex < 0) {
-      prevIndex = activeQueue.length - 1; // Loop to end
+        if (loopMode === 'queue') {
+            prevIndex = activeQueue.length - 1; // Loop to end
+        } else {
+            audioRef.current.currentTime = 0;
+            return;
+        }
     }
     playTrack(activeQueue[prevIndex], queue);
-  }, [currentTrack, queue, isShuffled, shuffledQueue, playTrack]);
+  }, [currentTrack, queue, isShuffled, shuffledQueue, playTrack, loopMode]);
   
   const seek = (newProgress: number) => {
     if (audioRef.current && isFinite(duration)) {
       audioRef.current.currentTime = duration * newProgress;
-      setProgress(newProgress);
     }
   };
 
   const toggleShuffle = () => {
-    setIsShuffled(prev => {
-        const newState = !prev;
-        if (newState) {
-            const shuffled = [...queue].sort(() => Math.random() - 0.5);
-            setShuffledQueue(shuffled);
-        }
-        return newState;
-    });
+    const newState = !isShuffled;
+    setIsShuffled(newState);
+    if (newState) {
+        const shuffled = [...queue].sort(() => Math.random() - 0.5);
+        setShuffledQueue(shuffled);
+    }
   };
 
   const toggleLoopMode = () => {
@@ -182,22 +190,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-    const handleLoadedMetadata = () => setDuration(audio.duration);
-    const handlePlay = () => setIsPlaying(true);
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+      setIsLoading(false);
+    }
+    const handlePlay = () => {
+      setIsPlaying(true);
+      setIsLoading(false);
+    }
     const handlePause = () => setIsPlaying(false);
+    const handleWaiting = () => setIsLoading(true);
+    const handleCanPlay = () => setIsLoading(false);
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleTrackEnd);
     audio.addEventListener('play', handlePlay);
+    audio.addEventListener('playing', handleCanPlay);
     audio.addEventListener('pause', handlePause);
+    audio.addEventListener('waiting', handleWaiting);
+    audio.addEventListener('canplay', handleCanPlay);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleTrackEnd);
       audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('playing', handleCanPlay);
       audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('waiting', handleWaiting);
+      audio.removeEventListener('canplay', handleCanPlay);
     };
   }, [handleTrackEnd, isSeeking, currentTrack]);
 
@@ -218,6 +240,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     isShuffled,
     loopMode,
     isSeeking,
+    isLoading,
     playTrack,
     togglePlay,
     seek,
