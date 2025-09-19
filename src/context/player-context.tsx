@@ -6,14 +6,12 @@ import {
   useRef, 
   useEffect, 
   useCallback,
-  useContext,
   type ReactNode 
 } from 'react';
 import { getStreamUrl } from '@/lib/api';
 import type { Track, DbPlaylist, DbDownload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
-import axios from 'axios';
 
 export type LoopMode = 'off' | 'queue' | 'single';
 
@@ -155,7 +153,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
             toast({
                 variant: "destructive",
                 title: "Playback Error",
-                description: "Could not stream the selected track.",
+                description: "Could not stream the selected track. Check your internet connection.",
             });
             setCurrentTrack(null);
             setIsLoading(false);
@@ -170,7 +168,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audio.current.play();
+        audioRef.current.play();
       }
     }
   }, [audioRef, isPlaying, currentTrack]);
@@ -361,10 +359,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     };
   }, [handleTrackEnd, isSeeking, currentTrack, updatePositionState, audioRef]);
   
-  useEffect(() => {
-    updatePositionState();
-  }, [progress, updatePositionState]);
-
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
