@@ -16,8 +16,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import Image from 'next/image';
-import { placeholderImages } from '@/lib/placeholder-images';
 
 export default function PlaylistsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -62,23 +60,11 @@ export default function PlaylistsPage() {
 
         {playlists && playlists.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {playlists.map((playlist, index) => (
-              <Card key={playlist.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer">
-                 <CardContent className="p-0">
-                    <div className="aspect-square relative bg-muted flex items-center justify-center">
-                        <Image
-                            src={placeholderImages[index % placeholderImages.length].imageUrl}
-                            alt={playlist.name}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-300 opacity-60"
-                        />
-                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                         <Music className="w-12 h-12 text-foreground/50 z-10"/>
-                    </div>
-                     <div className="p-3 absolute bottom-0 left-0">
-                        <h3 className="font-semibold text-sm truncate text-foreground">{playlist.name}</h3>
-                        <p className="text-xs text-muted-foreground">{playlist.tracks.length} tracks</p>
-                    </div>
+            {playlists.map((playlist) => (
+              <Card key={playlist.id} className="bg-secondary border-0 group cursor-pointer">
+                 <CardContent className="p-4 flex flex-col items-start justify-end h-32">
+                    <h3 className="font-semibold text-base truncate text-foreground">{playlist.name}</h3>
+                    <p className="text-sm text-muted-foreground">{playlist.tracks.length} tracks</p>
                 </CardContent>
               </Card>
             ))}
@@ -120,4 +106,3 @@ export default function PlaylistsPage() {
       </Dialog>
     </>
   );
-}
