@@ -61,7 +61,7 @@ export default function HomePage() {
         <h2 className="text-2xl font-bold font-headline mb-4">Recommended For You</h2>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {recommended.map((item) => (
-            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer">
+            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group">
               <CardContent className="p-0">
                 <div className="aspect-square relative">
                   <Image
@@ -72,9 +72,9 @@ export default function HomePage() {
                     data-ai-hint={item.imageHint}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                </div>
-                <div className="p-3 absolute bottom-0 left-0 w-full">
+                  <div className="p-3 absolute bottom-0 left-0 w-full">
                    <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -97,9 +97,9 @@ export default function HomePage() {
                     data-ai-hint={item.imageHint}
                   />
                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                </div>
-                <div className="p-3 absolute bottom-0 left-0 w-full">
-                  <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
+                   <div className="p-3 absolute bottom-0 left-0 w-full">
+                    <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
+                  </div>
                 </div>
               </CardContent>
             </Card>
