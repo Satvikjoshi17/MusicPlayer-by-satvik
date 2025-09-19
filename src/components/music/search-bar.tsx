@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -12,13 +12,17 @@ type SearchBarProps = {
 
 export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebounce(query, 400);
 
   useEffect(() => {
-    const url = debouncedQuery ? `/search?q=${encodeURIComponent(debouncedQuery)}` : '/search';
-    router.push(url);
-  }, [debouncedQuery, router]);
+    // Only navigate if there's a query, or if we are already on the search page
+    if (debouncedQuery || pathname === '/search') {
+      const url = debouncedQuery ? `/search?q=${encodeURIComponent(debouncedQuery)}` : '/search';
+      router.push(url);
+    }
+  }, [debouncedQuery, router, pathname]);
 
   useEffect(() => {
     setQuery(initialQuery);
