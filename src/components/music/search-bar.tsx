@@ -18,7 +18,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
 
   useEffect(() => {
     // If we are on the search page and the query is cleared, go back home
-    if (pathname === '/search' && !debouncedQuery) {
+    if (pathname === '/search' && query === '') {
       router.push('/');
       return;
     }
@@ -28,11 +28,17 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
       const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
       router.push(url);
     }
-  }, [debouncedQuery, router, pathname]);
+  }, [debouncedQuery, query, router, pathname]);
 
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
+
+  const handleFocus = () => {
+    if (pathname !== '/search') {
+      router.push('/search');
+    }
+  };
 
   return (
     <div className="relative w-full">
@@ -43,6 +49,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
         className="w-full pl-10 pr-4 py-3 h-12 text-base bg-secondary border-0 focus-visible:ring-primary focus-visible:ring-2"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onFocus={handleFocus}
       />
     </div>
   );
