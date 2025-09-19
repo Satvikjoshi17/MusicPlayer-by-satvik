@@ -54,7 +54,7 @@ export default function DownloadsPage() {
       {downloads && downloads.length > 0 && (
         <div className="divide-y divide-border rounded-lg border">
           {downloads.map((track) => (
-            <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} />
+            <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'downloads' }} />
           ))}
         </div>
       )}

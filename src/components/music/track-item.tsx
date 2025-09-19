@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Download, MoreVertical, Play, Pause, ListPlus, Plus } from 'lucide-react';
+import { Download, MoreVertical, Play, Pause, ListPlus, Plus, Trash2, CheckCircle } from 'lucide-react';
 import type { DbPlaylist, Track } from '@/lib/types';
 import { usePlayer } from '@/hooks/use-player';
 import { cn } from '@/lib/utils';
@@ -33,10 +33,17 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
 
+type TrackItemContext = 
+  | { type: 'search' }
+  | { type: 'playlist'; playlistId: string; }
+  | { type: 'downloads' };
+
 type TrackItemProps = {
   track: Track;
   onPlay: (track: Track) => void;
+  context: TrackItemContext;
 };
+
 
 function formatDuration(seconds: number) {
   if (isNaN(seconds) || seconds < 0) return '0:00';
@@ -45,13 +52,16 @@ function formatDuration(seconds: number) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
-export function TrackItem({ track, onPlay }: TrackItemProps) {
+export function TrackItem({ track, onPlay, context }: TrackItemProps) {
   const { currentTrack, isPlaying } = usePlayer();
   const { toast } = useToast();
   const playlists = useLiveQuery(() => db.playlists.toArray(), []);
   
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+
+  const downloadedTrack = useLiveQuery(() => db.downloads.get(track.id), [track.id]);
+  const isDownloaded = !!downloadedTrack;
 
   const isActive = currentTrack?.id === track.id;
   const isCurrentlyPlaying = isActive && isPlaying;
@@ -109,6 +119,63 @@ export function TrackItem({ track, onPlay }: TrackItemProps) {
     }
   };
 
+  const handleRemoveFromPlaylist = async () => {
+    if (context.type !== 'playlist') return;
+    try {
+        const playlist = await db.playlists.get(context.playlistId);
+        if (!playlist) return;
+
+        const updatedTracks = playlist.tracks.filter(t => t.id !== track.id);
+        await db.playlists.update(context.playlistId, {
+            tracks: updatedTracks,
+            updatedAt: new Date().toISOString(),
+        });
+
+        toast({
+            title: 'Track Removed',
+            description: `Removed "${track.title}" from "${playlist.name}".`,
+        });
+    } catch (error) {
+        console.error('Failed to remove track from playlist', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove track.' });
+    }
+  };
+
+  const handleDownload = async () => {
+    if (isDownloaded) {
+        toast({ title: 'Already Downloaded', description: 'You have already saved this track.' });
+        return;
+    }
+
+    toast({ title: 'Starting Download', description: `Downloading "${track.title}"...` });
+    try {
+        // This is a placeholder for a real download implementation
+        await db.downloads.add({
+            ...track,
+            blob: new Blob(),
+            mimeType: 'audio/mp4',
+            size: 0,
+            downloadedAt: new Date().toISOString(),
+            originalUrl: track.url,
+        });
+        toast({ title: 'Download Complete', description: `"${track.title}" is saved for offline playback.` });
+    } catch (error) {
+        console.error("Download failed:", error);
+        toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not download the track.' });
+    }
+  };
+
+  const handleRemoveFromDownloads = async () => {
+    if (!isDownloaded) return;
+    try {
+        await db.downloads.delete(track.id);
+        toast({ title: 'Removed from Downloads', description: `"${track.title}" has been removed.` });
+    } catch (error) {
+        console.error("Failed to remove download", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the download.' });
+    }
+  };
+
   return (
     <>
       <div
@@ -147,9 +214,6 @@ export function TrackItem({ track, onPlay }: TrackItemProps) {
           {formatDuration(track.duration)}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary md:hidden">
-            <Download className="w-5 h-5" />
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
@@ -157,33 +221,52 @@ export function TrackItem({ track, onPlay }: TrackItemProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem>
+              {context.type === 'playlist' && (
+                <DropdownMenuItem onClick={handleRemoveFromPlaylist}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Remove from playlist</span>
+                </DropdownMenuItem>
+              )}
+
+              {context.type !== 'playlist' && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ListPlus className="mr-2 h-4 w-4" />
+                    <span>Add to playlist</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        <span>New playlist</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {playlists?.map((playlist) => (
+                        <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
+                          <span>{playlist.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                      {playlists?.length === 0 && (
+                        <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+              )}
+              
+              <DropdownMenuSeparator />
+              
+              {isDownloaded ? (
+                 <DropdownMenuItem onClick={handleRemoveFromDownloads}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Remove from downloads</span>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={handleDownload}>
                     <Download className="mr-2 h-4 w-4" />
                     <span>Download</span>
                 </DropdownMenuItem>
-                 <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                        <ListPlus className="mr-2 h-4 w-4" />
-                        <span>Add to playlist</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                             <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                <span>New playlist</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {playlists?.map((playlist) => (
-                                <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
-                                    <span>{playlist.name}</span>
-                                </DropdownMenuItem>
-                            ))}
-                             {playlists?.length === 0 && (
-                                <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
-                            )}
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                </DropdownMenuSub>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

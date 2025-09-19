@@ -1,16 +1,31 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { db } from '@/lib/db';
 import { TrackItem } from '@/components/music/track-item';
 import { TrackListSkeleton } from '@/components/music/track-list-skeleton';
 import { usePlayer } from '@/hooks/use-player';
 import type { PlaylistTrack, Track } from '@/lib/types';
-import { Music } from 'lucide-react';
+import { Music, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PlaylistDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const { toast } = useToast();
   const id = params.id as string;
   const { playTrack } = usePlayer();
 
@@ -22,24 +37,67 @@ export default function PlaylistDetailPage() {
     }
   };
 
+  const handleDeletePlaylist = async () => {
+    if (!playlist) return;
+    try {
+      await db.playlists.delete(playlist.id);
+      toast({
+        title: 'Playlist Deleted',
+        description: `"${playlist.name}" has been deleted.`,
+      });
+      router.push('/playlists');
+    } catch (error) {
+      console.error('Failed to delete playlist', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete the playlist.',
+      });
+    }
+  };
+
+
   return (
     <div className="container mx-auto px-4 py-8 md:p-8">
       {playlist ? (
         <>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 rounded-full bg-primary/10 text-primary">
-              <Music className="w-8 h-8" />
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-primary/10 text-primary">
+                    <Music className="w-8 h-8" />
+                </div>
+                <div>
+                    <h1 className="text-3xl font-bold font-headline">{playlist.name}</h1>
+                    <p className="text-muted-foreground">{playlist.tracks.length} tracks</p>
+                </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold font-headline">{playlist.name}</h1>
-              <p className="text-muted-foreground">{playlist.tracks.length} tracks</p>
-            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the "{playlist.name}" playlist. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeletePlaylist}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           
           {playlist.tracks.length > 0 ? (
             <div className="divide-y divide-border rounded-lg border">
               {playlist.tracks.map((track) => (
-                <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} />
+                <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'playlist', playlistId: id }} />
               ))}
             </div>
           ) : (

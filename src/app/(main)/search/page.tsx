@@ -73,7 +73,7 @@ export default function SearchPage() {
         {!isPending && results.length > 0 && (
           <div className="divide-y divide-border rounded-lg border">
             {results.map((track) => (
-              <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} />
+              <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'search' }} />
             ))}
           </div>
         )}
