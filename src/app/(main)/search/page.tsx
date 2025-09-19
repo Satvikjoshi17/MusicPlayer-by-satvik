@@ -22,12 +22,8 @@ export default function SearchPage() {
 
   const { playTrack } = usePlayer();
 
-  const debouncedQuery = useMemo(() => {
-    return query;
-  }, [query]);
-
   useEffect(() => {
-    if (debouncedQuery.length < 2) {
+    if (query.length < 1) {
       setResults([]);
       setError(null);
       return;
@@ -36,14 +32,14 @@ export default function SearchPage() {
     startTransition(async () => {
       setError(null);
       try {
-        const searchResults = await searchTracks(debouncedQuery);
+        const searchResults = await searchTracks(query);
         setResults(searchResults);
       } catch (e) {
         console.error(e);
         setError('Failed to fetch search results. The server might be down.');
       }
     });
-  }, [debouncedQuery]);
+  }, [query]);
 
   const handlePlay = (track: Track) => {
     playTrack(track, results);
@@ -66,10 +62,10 @@ export default function SearchPage() {
           </div>
         )}
 
-        {!isPending && !error && debouncedQuery && results.length === 0 && (
+        {!isPending && !error && query && results.length === 0 && (
           <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
             <Music className="w-16 h-16" />
-            <h3 className="text-xl font-semibold">No results found for "{debouncedQuery}"</h3>
+            <h3 className="text-xl font-semibold">No results found for "{query}"</h3>
             <p>Try a different search term.</p>
           </div>
         )}
