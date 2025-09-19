@@ -94,28 +94,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // Determine if this is a new context or playing from the same queue
       const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || playlist.map(t => t.id).join() !== queue.map(t => t.id).join();
   
+      
+      const newQueue = isNewContext && playlist.length > 0 ? playlist : (isNewContext ? [track] : queue);
+      setQueue(newQueue);
+      
       setCurrentTrack(track);
       setSource(sourceInfo);
       
       if (isNewContext) {
-        const newQueue = playlist.length > 0 ? playlist : [track];
-        setQueue(newQueue);
         if (isShuffled) {
           const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
-          // Place the current track at the beginning of the shuffled queue
           const currentIndex = shuffled.findIndex(t => t.id === track.id);
-          if (currentIndex > -1) { // Ensure track is in the shuffled list
+          if (currentIndex > -1) {
             const [current] = shuffled.splice(currentIndex, 1);
             shuffled.unshift(current);
           }
           setShuffledQueue(shuffled);
         } else {
-          // If not shuffled, ensure the queue is in the correct order for playback
           setShuffledQueue([]); 
         }
-      } else {
-        // If same context, just update the current track
-        // The queue remains the same.
       }
   
       addTrackToRecents(track);
@@ -173,7 +170,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
-    playTrack(activeQueue[nextIndex], queue, source);
+    const nextTrack = activeQueue[nextIndex];
+    if (nextTrack) {
+        playTrack(nextTrack, queue, source);
+    }
   }, [currentTrack, queue, isShuffled, shuffledQueue, loopMode, playTrack, source]);
 
   const handleTrackEnd = useCallback(() => {
@@ -202,7 +202,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             return;
         }
     }
-    playTrack(activeQueue[prevIndex], queue, source);
+    const prevTrack = activeQueue[prevIndex];
+    if (prevTrack) {
+        playTrack(prevTrack, queue, source);
+    }
   }, [currentTrack, queue, isShuffled, shuffledQueue, playTrack, loopMode, source]);
   
   const seek = (newProgress: number) => {
@@ -217,7 +220,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (newState) {
         const shuffled = [...queue].sort(() => Math.random() - 0.5);
         if (currentTrack) {
-          // Keep the current track at the top of the new shuffled queue
           const currentIndex = shuffled.findIndex(t => t.id === currentTrack.id);
           if (currentIndex > 0) {
             const [current] = shuffled.splice(currentIndex, 1);
@@ -245,19 +247,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           artist: currentTrack.artist,
           album: 'satvikx',
           artwork: [
-            { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '192x192', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '384x384', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail || '', sizes: '96x96', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail || '', sizes: '128x128', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail || '', sizes: '192x192', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail || '', sizes: '256x256', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail || '', sizes: '384x384', type: 'image/jpeg' },
+            { src: currentTrack.thumbnail || '', sizes: '512x512', type: 'image/jpeg' },
           ],
         });
         
-        navigator.mediaSession.setActionHandler('play', togglePlay);
-        navigator.mediaSession.setActionHandler('pause', togglePlay);
-        navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
-        navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+        try {
+          navigator.mediaSession.setActionHandler('play', togglePlay);
+          navigator.mediaSession.setActionHandler('pause', togglePlay);
+          navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
+          navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+        } catch (error) {
+          console.error('Error setting media session action handlers:', error);
+        }
+
       }
     }
   }, [currentTrack, togglePlay, skipPrev, skipNext]);
@@ -274,11 +281,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const updatePositionState = () => {
       if ('mediaSession' in navigator && isFinite(audio.duration)) {
-        navigator.mediaSession.setPositionState({
-          duration: audio.duration,
-          playbackRate: audio.playbackRate,
-          position: audio.currentTime,
-        });
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audio.duration,
+            playbackRate: audio.playbackRate,
+            position: audio.currentTime,
+          });
+        } catch (error) {
+          // setPositionState can fail if media metadata is not set.
+          // This is a known issue in some browsers.
+        }
       }
     };
 
