@@ -91,28 +91,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           currentBlobUrl.current = null;
       }
   
-      // Determine if this is a new context or playing from the same queue
       const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || playlist.map(t => t.id).join() !== queue.map(t => t.id).join();
   
-      
       const newQueue = isNewContext && playlist.length > 0 ? playlist : (isNewContext ? [track] : queue);
-      setQueue(newQueue);
       
+      const currentTrackIndexInNewQueue = newQueue.findIndex(t => t.id === track.id);
+      const reorderedQueue = [...newQueue.slice(currentTrackIndexInNewQueue), ...newQueue.slice(0, currentTrackIndexInNewQueue)];
+      
+      setQueue(reorderedQueue);
       setCurrentTrack(track);
       setSource(sourceInfo);
       
-      if (isNewContext) {
-        if (isShuffled) {
-          const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
-          const currentIndex = shuffled.findIndex(t => t.id === track.id);
-          if (currentIndex > -1) {
-            const [current] = shuffled.splice(currentIndex, 1);
-            shuffled.unshift(current);
-          }
-          setShuffledQueue(shuffled);
-        } else {
-          setShuffledQueue([]); 
+      if (isShuffled) {
+        const shuffled = [...reorderedQueue].sort(() => Math.random() - 0.5);
+        const currentIndex = shuffled.findIndex(t => t.id === track.id);
+        if (currentIndex > -1) {
+          const [current] = shuffled.splice(currentIndex, 1);
+          shuffled.unshift(current);
         }
+        setShuffledQueue(shuffled);
+      } else {
+        setShuffledQueue([]);
       }
   
       addTrackToRecents(track);
@@ -289,7 +288,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           });
         } catch (error) {
           // setPositionState can fail if media metadata is not set.
-          // This is a known issue in some browsers.
         }
       }
     };
@@ -383,3 +381,5 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     </PlayerContext.Provider>
   );
 }
+
+    
