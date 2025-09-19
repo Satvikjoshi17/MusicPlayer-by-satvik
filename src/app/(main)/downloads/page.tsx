@@ -33,7 +33,7 @@ export default function DownloadsPage() {
         url: t.originalUrl,
         viewCount: 0,
       }));
-      playTrack(playerTrack, playlist);
+      playTrack(playerTrack, playlist, { type: 'downloads' });
     }
   };
 

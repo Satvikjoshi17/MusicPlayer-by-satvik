@@ -10,11 +10,40 @@ import { ChevronDown, ListMusic, Volume2, Mic, Music2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { placeholderImages } from '@/lib/placeholder-images';
 import { Slider } from '../ui/slider';
+import { useMemo, useState } from 'react';
+import type { PlayerContextSource } from '@/context/player-context';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
+import { QueueList } from './queue-list';
+
+function getPlayerSource(source: PlayerContextSource) {
+  switch (source.type) {
+    case 'playlist':
+      return { title: 'Playing from Playlist', name: source.playlist.name };
+    case 'search':
+      return { title: 'Playing from Search', name: `"${source.query}"` };
+    case 'downloads':
+      return { title: 'Playing from', name: 'Downloads' };
+    case 'recent':
+      return { title: 'Playing from', name: 'Recently Played' };
+    default:
+      return { title: 'Now Playing', name: 'Unknown Source' };
+  }
+}
 
 export function PlayerFull() {
   const router = useRouter();
-  const { currentTrack, isPlaying, volume, setVolume } = usePlayer();
+  const { currentTrack, volume, setVolume, source, queue, playTrack } = usePlayer();
   const fallbackImage = placeholderImages[0];
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  const playerSource = useMemo(() => getPlayerSource(source), [source]);
+
+  const handleSelectTrack = (trackId: string) => {
+    const trackToPlay = queue.find(t => t.id === trackId);
+    if (trackToPlay) {
+      playTrack(trackToPlay, queue, source);
+    }
+  }
 
   return (
     <div className="relative flex flex-col h-full w-full p-6 md:p-8 justify-between">
@@ -44,12 +73,26 @@ export function PlayerFull() {
           <ChevronDown className="w-6 h-6" />
         </Button>
         <div className="text-center">
-            <p className="text-sm uppercase tracking-widest text-muted-foreground">Playing from</p>
-            <p className="font-semibold text-foreground">Search Results</p>
+            <p className="text-sm uppercase tracking-widest text-muted-foreground">{playerSource.title}</p>
+            <p className="font-semibold text-foreground truncate max-w-[200px]">{playerSource.name}</p>
         </div>
-        <Button variant="ghost" size="icon" className="bg-black/20 hover:bg-black/40">
-          <ListMusic className="w-6 h-6" />
-        </Button>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="bg-black/20 hover:bg-black/40">
+              <ListMusic className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Up Next</SheetTitle>
+            </SheetHeader>
+            <QueueList 
+              tracks={queue} 
+              currentTrackId={currentTrack?.id} 
+              onSelectTrack={handleSelectTrack}
+            />
+          </SheetContent>
+        </Sheet>
       </header>
       
       <main className="relative z-10 flex-1 flex flex-col justify-center items-center gap-8 py-8">

@@ -9,16 +9,24 @@ import {
   type ReactNode 
 } from 'react';
 import { getStreamUrl } from '@/lib/api';
-import type { Track } from '@/lib/types';
+import type { Track, DbPlaylist } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
 
 export type LoopMode = 'off' | 'queue' | 'single';
 
+export type PlayerContextSource = 
+    | { type: 'playlist', playlist: DbPlaylist }
+    | { type: 'search', query: string }
+    | { type: 'downloads' }
+    | { type: 'recent' }
+    | { type: 'unknown' };
+
 type PlayerContextType = {
   audioRef: React.RefObject<HTMLAudioElement>;
   currentTrack: Track | null;
   queue: Track[];
+  source: PlayerContextSource;
   isPlaying: boolean;
   duration: number;
   progress: number;
@@ -27,7 +35,7 @@ type PlayerContextType = {
   loopMode: LoopMode;
   isSeeking: boolean;
   isLoading: boolean;
-  playTrack: (track: Track, playlist?: Track[]) => void;
+  playTrack: (track: Track, playlist?: Track[], source?: PlayerContextSource) => void;
   togglePlay: () => void;
   seek: (progress: number) => void;
   skipNext: () => void;
@@ -46,6 +54,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
+  const [source, setSource] = useState<PlayerContextSource>({ type: 'unknown' });
   const [shuffledQueue, setShuffledQueue] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -68,11 +77,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const playTrack = useCallback(async (track: Track, playlist: Track[] = []) => {
+  const playTrack = useCallback(async (track: Track, playlist: Track[] = [], source: PlayerContextSource = { type: 'unknown' }) => {
     if (audioRef.current) {
       setIsLoading(true);
       setIsPlaying(false);
       setCurrentTrack(track);
+      setSource(source);
       
       const newQueue = playlist.length > 0 ? playlist : [track];
       setQueue(newQueue);
@@ -123,8 +133,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return; // End of queue
       }
     }
-    playTrack(activeQueue[nextIndex], queue);
-  }, [currentTrack, queue, isShuffled, shuffledQueue, loopMode, playTrack]);
+    playTrack(activeQueue[nextIndex], queue, source);
+  }, [currentTrack, queue, isShuffled, shuffledQueue, loopMode, playTrack, source]);
 
   const handleTrackEnd = useCallback(() => {
     if (loopMode === 'single' && currentTrack && audioRef.current) {
@@ -148,12 +158,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (loopMode === 'queue') {
             prevIndex = activeQueue.length - 1; // Loop to end
         } else {
-            audioRef.current.currentTime = 0;
+            if (audioRef.current) audioRef.current.currentTime = 0;
             return;
         }
     }
-    playTrack(activeQueue[prevIndex], queue);
-  }, [currentTrack, queue, isShuffled, shuffledQueue, playTrack, loopMode]);
+    playTrack(activeQueue[prevIndex], queue, source);
+  }, [currentTrack, queue, isShuffled, shuffledQueue, playTrack, loopMode, source]);
   
   const seek = (newProgress: number) => {
     if (audioRef.current && isFinite(duration)) {
@@ -233,6 +243,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audioRef,
     currentTrack,
     queue,
+    source,
     isPlaying,
     duration,
     progress,

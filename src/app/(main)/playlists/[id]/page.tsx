@@ -33,7 +33,7 @@ export default function PlaylistDetailPage() {
 
   const handlePlay = (track: PlaylistTrack) => {
     if (playlist) {
-      playTrack(track, playlist.tracks);
+      playTrack(track, playlist.tracks, { type: 'playlist', playlist });
     }
   };
 

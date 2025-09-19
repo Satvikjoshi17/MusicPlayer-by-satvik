@@ -42,7 +42,7 @@ export default function SearchPage() {
   }, [query]);
 
   const handlePlay = (track: Track) => {
-    playTrack(track, results);
+    playTrack(track, results, { type: 'search', query });
   };
 
   return (

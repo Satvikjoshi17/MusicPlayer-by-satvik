@@ -42,7 +42,7 @@ export default function HomePage() {
         .map(p => p.track)
         .filter((t): t is Track => !!t);
 
-    playTrack(item.track, playlist);
+    playTrack(item.track, playlist, { type: 'recent' });
   };
 
 
