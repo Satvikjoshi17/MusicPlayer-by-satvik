@@ -8,10 +8,11 @@ import {
   useCallback,
   type ReactNode 
 } from 'react';
-import { getStreamUrl } from '@/lib/api';
+import { getStreamUrl, getDownloadUrl } from '@/lib/api';
 import type { Track, DbPlaylist, DbDownload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
+import axios from 'axios';
 
 export type LoopMode = 'off' | 'queue' | 'single';
 
