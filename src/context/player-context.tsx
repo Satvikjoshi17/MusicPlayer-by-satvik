@@ -78,56 +78,59 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const playTrack = useCallback(async (track: Track, playlist: Track[] = [], source: PlayerContextSource = { type: 'unknown' }) => {
-    if (audioRef.current) {
-      setIsLoading(true);
-      setIsPlaying(false);
-      setCurrentTrack(track);
-      setSource(source);
-      
-      const newQueue = playlist.length > 0 ? playlist : [track];
-      setQueue(newQueue);
-      if (isShuffled) {
-        const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
-        setShuffledQueue(shuffled);
-      }
+  const playTrack = useCallback(async (track: Track, playlist: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
+    if (!audioRef.current) return;
 
-      addTrackToRecents(track);
+    setIsLoading(true);
+    // Pause immediately to stop current track sound
+    audioRef.current.pause();
 
-      // Clean up old blob URL if it exists
-      if (currentBlobUrl.current) {
+    // Revoke old blob URL if it exists
+    if (currentBlobUrl.current) {
         URL.revokeObjectURL(currentBlobUrl.current);
         currentBlobUrl.current = null;
-      }
-      
-      try {
+    }
+
+    setCurrentTrack(track);
+    setSource(sourceInfo);
+    
+    const newQueue = playlist.length > 0 ? playlist : [track];
+    setQueue(newQueue);
+    if (isShuffled) {
+      const shuffled = [...newQueue].sort(() => Math.random() - 0.5);
+      setShuffledQueue(shuffled);
+    }
+
+    addTrackToRecents(track);
+    
+    try {
         let finalStreamUrl: string;
         const downloadedTrack = await db.downloads.get(track.id) as DbDownload | undefined;
 
         if (downloadedTrack?.blob) {
-          console.log("Playing from IndexedDB blob");
-          finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
-          currentBlobUrl.current = finalStreamUrl; // Keep track of it to revoke later
+            console.log("Playing from IndexedDB blob");
+            finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
+            currentBlobUrl.current = finalStreamUrl; // Keep track to revoke later
         } else {
-          console.log("Streaming from API");
-          const { streamUrl } = await getStreamUrl(track.url);
-          finalStreamUrl = streamUrl;
+            console.log("Streaming from API");
+            const { streamUrl } = await getStreamUrl(track.url);
+            finalStreamUrl = streamUrl;
         }
         
         audioRef.current.src = finalStreamUrl;
         await audioRef.current.play();
-      } catch (error) {
+
+    } catch (error) {
         console.error('Failed to get stream URL', error);
         toast({
-          variant: "destructive",
-          title: "Playback Error",
-          description: "Could not stream the selected track.",
+            variant: "destructive",
+            title: "Playback Error",
+            description: "Could not stream the selected track.",
         });
         setCurrentTrack(null);
         setIsLoading(false);
-      }
     }
-  }, [toast, isShuffled]);
+}, [toast, isShuffled]);
   
   const togglePlay = useCallback(() => {
     if (audioRef.current && currentTrack) {
