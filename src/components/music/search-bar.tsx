@@ -17,9 +17,15 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const debouncedQuery = useDebounce(query, 400);
 
   useEffect(() => {
-    // Only navigate if there's a query, or if we are already on the search page
-    if (debouncedQuery || pathname === '/search') {
-      const url = debouncedQuery ? `/search?q=${encodeURIComponent(debouncedQuery)}` : '/search';
+    // If we are on the search page and the query is cleared, go back home
+    if (pathname === '/search' && !debouncedQuery) {
+      router.push('/');
+      return;
+    }
+    
+    // Only navigate to search page if there is a query
+    if (debouncedQuery) {
+      const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
       router.push(url);
     }
   }, [debouncedQuery, router, pathname]);
