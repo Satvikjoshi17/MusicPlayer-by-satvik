@@ -7,6 +7,7 @@ import { Pause, Play, SkipForward } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { placeholderImages } from '@/lib/placeholder-images';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function MiniPlayer() {
   const { 
@@ -16,6 +17,7 @@ export function MiniPlayer() {
     progress,
     skipNext,
   } = usePlayer();
+  const isMobile = useIsMobile();
 
   if (!currentTrack) {
     return null;
@@ -36,7 +38,11 @@ export function MiniPlayer() {
   const fallbackImage = placeholderImages[0];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 md:bottom-auto md:top-auto">
+    <div className={cn(
+        "fixed left-0 right-0 z-50",
+        isMobile ? 'bottom-20' : 'bottom-0',
+        'md:bottom-auto md:top-auto'
+    )}>
       <Link href="/player" className="block">
         <div 
           className={cn(
