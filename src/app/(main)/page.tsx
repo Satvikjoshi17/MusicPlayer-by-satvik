@@ -73,7 +73,7 @@ export default function HomePage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 </div>
-                <div className="p-3 absolute bottom-0 left-0">
+                <div className="p-3 absolute bottom-0 left-0 w-full">
                    <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
                 </div>
               </CardContent>
@@ -98,7 +98,7 @@ export default function HomePage() {
                   />
                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 </div>
-                <div className="p-3 absolute bottom-0 left-0">
+                <div className="p-3 absolute bottom-0 left-0 w-full">
                   <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
                 </div>
               </CardContent>
