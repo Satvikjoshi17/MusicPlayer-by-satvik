@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
 
 export default function PlaylistsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -61,12 +62,14 @@ export default function PlaylistsPage() {
         {playlists && playlists.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {playlists.map((playlist) => (
-              <Card key={playlist.id} className="bg-secondary border-0 group cursor-pointer">
-                 <CardContent className="p-4 flex flex-col items-start justify-end h-32">
-                    <h3 className="font-semibold text-base truncate text-foreground">{playlist.name}</h3>
-                    <p className="text-sm text-muted-foreground">{playlist.tracks.length} tracks</p>
-                </CardContent>
-              </Card>
+              <Link key={playlist.id} href={`/playlists/${playlist.id}`} passHref>
+                <Card className="bg-secondary border-0 group cursor-pointer h-full">
+                  <CardContent className="p-4 flex flex-col items-start justify-end h-32">
+                      <h3 className="font-semibold text-base truncate text-foreground">{playlist.name}</h3>
+                      <p className="text-sm text-muted-foreground">{playlist.tracks.length} tracks</p>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         ) : (
@@ -106,3 +109,4 @@ export default function PlaylistsPage() {
       </Dialog>
     </>
   );
+}
