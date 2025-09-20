@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, ListMusic, Download } from 'lucide-react';
+import { Home, Search, ListMusic, Download, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 
@@ -14,6 +14,7 @@ const mainNavItems = [
 const libraryNavItems = [
   { href: '/playlists', label: 'Playlists', icon: ListMusic },
   { href: '/downloads', label: 'Downloads', icon: Download },
+  { href: '/recent', label: 'Recent', icon: History },
 ];
 
 export function SidebarNav() {

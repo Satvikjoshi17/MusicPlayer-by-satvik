@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, ListMusic, Download } from 'lucide-react';
+import { Home, Search, ListMusic, Download, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/search', label: 'Search', icon: Search },
   { href: '/playlists', label: 'Playlists', icon: ListMusic },
   { href: '/downloads', label: 'Downloads', icon: Download },
+  { href: '/recent', label: 'Recent', icon: History },
 ];
 
 export function MobileNav() {

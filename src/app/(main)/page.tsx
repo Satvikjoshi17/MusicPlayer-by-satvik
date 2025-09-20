@@ -9,6 +9,8 @@ import { usePlayer } from '@/hooks/use-player';
 import type { Track } from '@/lib/types';
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
   const recommended = placeholderImages.slice(0, 4);
@@ -83,7 +85,12 @@ export default function HomePage() {
       </section>
 
       <section>
-        <h2 className="text-2xl font-bold font-headline mb-4">Recently Played</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold font-headline">Recently Played</h2>
+          <Button variant="link" asChild>
+            <Link href="/recent">See all</Link>
+          </Button>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {recentlyPlayedItems.map((item) => (
             <Card key={item.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer" onClick={() => handlePlay(item as any)}>
