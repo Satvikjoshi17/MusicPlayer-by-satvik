@@ -12,10 +12,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { recommendMusic } from '@/ai/flows/recommend-music-flow';
-import { searchTracks } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getStreamUrl } from '@/lib/api';
 
 export default function HomePage() {
   const { playTrack } = usePlayer();
@@ -35,14 +35,18 @@ export default function HomePage() {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           const { recommendations } = await recommendMusic({ recentTracks: recent });
+          
+          // Map AI recommendations to Track objects
+          const fullTracks: Track[] = recommendations.slice(0, 4).map(rec => ({
+            id: rec.url, // Use URL as a unique ID for recommendations
+            title: rec.title,
+            artist: rec.artist,
+            duration: rec.duration,
+            thumbnail: `https://i.ytimg.com/vi/${new URL(rec.url).searchParams.get('v')}/hqdefault.jpg`,
+            url: rec.url,
+            viewCount: 0,
+          }));
 
-          // Fetch track details for each recommendation
-          const recommendationPromises = recommendations.slice(0, 4).map(async (rec) => {
-            const searchResults = await searchTracks(`${rec.title} ${rec.artist}`);
-            return searchResults.length > 0 ? searchResults[0] : null;
-          });
-
-          const fullTracks = (await Promise.all(recommendationPromises)).filter((t): t is Track => t !== null);
           setRecommended(fullTracks);
         } catch (error) {
           console.error("Failed to get recommendations:", error);
@@ -53,21 +57,21 @@ export default function HomePage() {
             artist: 'Various Artists',
             duration: 0,
             thumbnail: p.imageUrl,
-            url: '',
+            url: '', // This makes it unplayable
             viewCount: 0,
           })));
         }
       } else {
-          // Fallback for new users
-          setRecommended(placeholderImages.slice(0, 4).map(p => ({
-              id: p.id,
-              title: p.description,
-              artist: 'Various Artists',
-              duration: 0,
-              thumbnail: p.imageUrl,
-              url: '',
-              viewCount: 0,
-            })));
+        // Fallback for new users
+        setRecommended(placeholderImages.slice(0, 4).map(p => ({
+            id: p.id,
+            title: p.description,
+            artist: 'Various Artists',
+            duration: 0,
+            thumbnail: p.imageUrl,
+            url: '', // This makes it unplayable
+            viewCount: 0,
+          })));
       }
     });
   }, [recentTracks]);

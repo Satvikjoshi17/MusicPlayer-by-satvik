@@ -13,6 +13,8 @@ import {z} from 'genkit';
 const RecommendedTrackSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
   title: z.string().describe('The title of the recommended song.'),
+  url: z.string().url().describe("A YouTube URL for the recommended song."),
+  duration: z.number().describe("The duration of the song in seconds."),
 });
 
 const RecommendMusicInputSchema = z.object({
@@ -37,6 +39,8 @@ const prompt = ai.definePrompt({
   input: {schema: RecommendMusicInputSchema},
   output: {schema: RecommendMusicOutputSchema},
   prompt: `You are a music recommendation expert. Based on the following list of recently played tracks, please recommend 4 new and different songs that the user might like.
+
+For each song, you must provide a valid YouTube URL.
 
 Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
 
