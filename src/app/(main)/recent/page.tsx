@@ -54,7 +54,7 @@ export default function RecentPage() {
       {recentTracks && recentTracks.length > 0 && (
         <div className="divide-y divide-border rounded-lg border">
           {recentTracks.map((track) => (
-            <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'search' }} />
+            <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'recent' }} />
           ))}
         </div>
       )}
