@@ -13,9 +13,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { recommendMusic } from '@/ai/flows/recommend-music-flow';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Play } from 'lucide-react';
+import { MoreVertical, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getStreamUrl } from '@/lib/api';
+import { TrackActions } from '@/components/music/track-actions';
 
 export default function HomePage() {
   const { playTrack } = usePlayer();
@@ -91,7 +92,7 @@ export default function HomePage() {
   }, [recentTracks]);
 
   const handlePlayRecent = (item: { track: Track, isPlaceholder?: boolean }) => {
-    if (item.isPlaceholder) return;
+    if (item.isPlaceholder || !item.track) return;
     
     const playlist = recentlyPlayedItems
         .filter(p => !p.isPlaceholder)
@@ -150,6 +151,16 @@ export default function HomePage() {
                      <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
                      <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
                     </div>
+
+                    {track.url && (
+                       <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          <TrackActions track={track} context={{ type: 'search' }} >
+                              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
+                                  <MoreVertical className="w-4 h-4"/>
+                              </Button>
+                          </TrackActions>
+                       </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -177,10 +188,20 @@ export default function HomePage() {
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                     data-ai-hint={item.imageHint}
                   />
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                   <div className="p-3 absolute bottom-0 left-0 w-full">
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+                   <div className="p-3 absolute bottom-0 left-0 w-full pointer-events-none">
                     <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
                   </div>
+
+                   {!item.isPlaceholder && item.track && (
+                       <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          <TrackActions track={item.track} context={{ type: 'recent' }} >
+                              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
+                                  <MoreVertical className="w-4 h-4"/>
+                              </Button>
+                          </TrackActions>
+                       </div>
+                    )}
                 </div>
               </CardContent>
             </Card>
