@@ -15,6 +15,7 @@ import { recommendMusic } from '@/ai/flows/recommend-music-flow';
 import { searchTracks } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Play } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function HomePage() {
   const { playTrack } = usePlayer();
@@ -125,7 +126,7 @@ export default function HomePage() {
             ))
           ) : (
             recommended.map((track) => (
-              <Card key={track.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer" onClick={() => handlePlayRecommendation(track)}>
+              <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track)}>
                 <CardContent className="p-0">
                   <div className="aspect-square relative">
                     <Image
@@ -135,9 +136,11 @@ export default function HomePage() {
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                       data-ai-hint="album cover"
                     />
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play className="w-12 h-12 text-white fill-white" />
-                    </div>
+                    {track.url && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Play className="w-12 h-12 text-white fill-white" />
+                        </div>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
                     <div className="p-3 absolute bottom-0 left-0 w-full pointer-events-none">
                      <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
@@ -160,7 +163,7 @@ export default function HomePage() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {recentlyPlayedItems.map((item) => (
-            <Card key={item.id} className="bg-secondary border-0 overflow-hidden group cursor-pointer" onClick={() => handlePlayRecent(item as any)}>
+            <Card key={item.id} className={cn("bg-secondary border-0 overflow-hidden group", !item.isPlaceholder && "cursor-pointer")} onClick={() => handlePlayRecent(item as any)}>
               <CardContent className="p-0">
                 <div className="aspect-square relative">
                   <Image

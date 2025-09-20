@@ -13,7 +13,7 @@ type SearchBarProps = {
 export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
-  const debouncedQuery = useDebounce(query, 400);
+  const debouncedQuery = useDebounce(query, 600);
 
   useEffect(() => {
     if (debouncedQuery === '' && initialQuery !== '') {
