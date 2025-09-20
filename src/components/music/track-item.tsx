@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Download, MoreVertical, Play, Pause, ListPlus, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Download, MoreVertical, Play, Pause, ListPlus, Plus, Trash2, CheckCircle, ListVideo } from 'lucide-react';
 import type { DbPlaylist, Track } from '@/lib/types';
 import { usePlayer } from '@/hooks/use-player';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,8 @@ import { getDownloadUrl } from '@/lib/api';
 type TrackItemContext = 
   | { type: 'search' }
   | { type: 'playlist'; playlistId: string; }
-  | { type: 'downloads' };
+  | { type: 'downloads' }
+  | { type: 'recent' };
 
 type TrackItemProps = {
   track: Track;
@@ -55,7 +56,7 @@ function formatDuration(seconds: number) {
 }
 
 export function TrackItem({ track, onPlay, context }: TrackItemProps) {
-  const { currentTrack, isPlaying } = usePlayer();
+  const { currentTrack, isPlaying, addToQueue } = usePlayer();
   const { toast } = useToast();
   const playlists = useLiveQuery(() => db.playlists.toArray(), []);
   
@@ -251,6 +252,11 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => addToQueue(track)}>
+                    <ListVideo className="mr-2 h-4 w-4" />
+                    <span>Add to queue</span>
+                </DropdownMenuItem>
+
               {context.type === 'playlist' && (
                 <DropdownMenuItem onClick={handleRemoveFromPlaylist}>
                   <Trash2 className="mr-2 h-4 w-4" />

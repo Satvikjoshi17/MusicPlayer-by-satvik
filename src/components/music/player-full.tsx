@@ -6,7 +6,7 @@ import { usePlayer } from '@/hooks/use-player';
 import { SeekBar } from '@/components/music/seek-bar';
 import { PlayerControls } from '@/components/music/player-controls';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ListMusic, Volume2, Mic, ListPlus, Plus, Download, Trash2, CheckCircle } from 'lucide-react';
+import { ChevronDown, ListMusic, Volume2, Mic, ListPlus, Plus, Download, Trash2, CheckCircle, ListVideo } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { placeholderImages } from '@/lib/placeholder-images';
 import { Slider } from '../ui/slider';
@@ -59,7 +59,7 @@ function getPlayerSource(source: PlayerContextSource) {
 
 export function PlayerFull() {
   const router = useRouter();
-  const { currentTrack, volume, setVolume, source, playQueue, playTrack, queue } = usePlayer();
+  const { currentTrack, volume, setVolume, source, playQueue, playTrack, queue, addToQueue } = usePlayer();
   const { toast } = useToast();
   const playlists = useLiveQuery(() => db.playlists.toArray(), []);
   const downloadedTrack = useLiveQuery(() => currentTrack ? db.downloads.get(currentTrack.id) : undefined, [currentTrack?.id]);
@@ -171,6 +171,12 @@ export function PlayerFull() {
     }
   };
 
+  const handleAddToQueue = () => {
+    if (currentTrack) {
+        addToQueue(currentTrack);
+    }
+  };
+
   return (
     <>
       <div className="relative flex flex-col h-full w-full p-6 md:p-8 justify-between overflow-hidden">
@@ -263,6 +269,10 @@ export function PlayerFull() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
+                  <DropdownMenuItem onClick={handleAddToQueue}>
+                      <ListVideo className="mr-2 h-4 w-4" />
+                      <span>Add to queue</span>
+                  </DropdownMenuItem>
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <ListPlus className="mr-2 h-4 w-4" />

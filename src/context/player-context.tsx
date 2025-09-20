@@ -37,6 +37,7 @@ type PlayerContextType = {
   isSeeking: boolean;
   isLoading: boolean;
   playTrack: (track: Track, playlist?: Track[], source?: PlayerContextSource) => void;
+  addToQueue: (track: Track) => void;
   togglePlay: () => void;
   seek: (progress: number) => void;
   skipNext: () => void;
@@ -165,13 +166,47 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
     playAudio();
   }, [audioRef, toast, isShuffled, queue, source]);
+
+  const addToQueue = (track: Track) => {
+    if (!currentTrack) {
+      playTrack(track, [track], { type: 'unknown' });
+      toast({ title: 'Added to queue', description: `"${track.title}" is now playing.` });
+      return;
+    }
+    
+    // Add to the main queue if not there
+    if (!queue.find(t => t.id === track.id)) {
+        setQueue(prev => [...prev, track]);
+    }
+    
+    // Add to play queue (after current track)
+    setPlayQueue(prev => {
+        const newQueue = [...prev];
+        newQueue.splice(1, 0, track);
+        return newQueue;
+    });
+
+    // If shuffled, add to shuffled queue too
+    if (isShuffled) {
+        setShuffledPlayQueue(prev => {
+            const newQueue = [...prev];
+            newQueue.splice(1, 0, track); // Add after current track
+            return newQueue;
+        });
+    }
+
+    toast({
+        title: 'Added to queue',
+        description: `"${track.title}" is up next.`,
+    });
+  };
   
   const togglePlay = useCallback(() => {
     if (audioRef.current && currentTrack) {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audio.current.play();
+        audioRef.current.play();
       }
     }
   }, [audioRef, isPlaying, currentTrack]);
@@ -310,8 +345,10 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     if (!audio) return;
 
     const handleTimeUpdate = () => {
-      if (!isSeeking && isFinite(audio.duration) && audio.duration > 0) {
-        setProgress(audio.currentTime / audio.duration);
+      if (!isSeeking) {
+        if (isFinite(audio.duration) && audio.duration > 0) {
+            setProgress(audio.currentTime / audio.duration);
+        }
         if (currentTrack && audio.currentTime > 0) {
             db.recent.update(currentTrack.id, { position: audio.currentTime }).catch(() => {});
         }
@@ -381,6 +418,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     isSeeking,
     isLoading,
     playTrack,
+    addToQueue,
     togglePlay,
     seek,
     skipNext,
