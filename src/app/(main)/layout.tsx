@@ -19,11 +19,9 @@ export default function MainLayout({
       <MobileNav />
       <main className={cn(
         "flex-1 overflow-y-auto transition-all duration-300",
-        // Add padding bottom to avoid content being hidden by mini-player and nav
-        'pb-20',
-        currentTrack ? 'pb-36' : 'pb-20', 
-        'md:pb-0',
-        currentTrack ? 'md:mb-20' : ''
+        // Add padding bottom to avoid content being hidden by mini-player and mobile nav
+        "pb-20", 
+        currentTrack ? 'md:pb-24' : 'md:pb-4'
       )}>
         {children}
       </main>
