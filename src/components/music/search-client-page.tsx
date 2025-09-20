@@ -21,6 +21,8 @@ export function SearchClientPage() {
   const { playTrack } = usePlayer();
 
   useEffect(() => {
+    let ignore = false;
+    
     if (query.length < 1) {
       setResults([]);
       setError(null);
@@ -31,12 +33,20 @@ export function SearchClientPage() {
       setError(null);
       try {
         const searchResults = await searchTracks(query);
-        setResults(searchResults);
+        if (!ignore) {
+          setResults(searchResults);
+        }
       } catch (e) {
         console.error(e);
-        setError('Failed to fetch search results. The server might be down.');
+        if (!ignore) {
+          setError('Failed to fetch search results. The server might be down.');
+        }
       }
     });
+
+    return () => {
+      ignore = true;
+    };
   }, [query]);
 
   const handlePlay = (track: Track) => {
