@@ -6,7 +6,7 @@ import { usePlayer } from '@/hooks/use-player';
 import { SeekBar } from '@/components/music/seek-bar';
 import { PlayerControls } from '@/components/music/player-controls';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ListMusic, Volume2, Mic, ListPlus, Plus } from 'lucide-react';
+import { ChevronDown, ListMusic, Volume2, Mic, ListPlus, Plus, Download, Trash2, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { placeholderImages } from '@/lib/placeholder-images';
 import { Slider } from '../ui/slider';
@@ -28,7 +28,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
-import type { DbPlaylist } from '@/lib/types';
+import type { DbPlaylist, DbDownload } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,8 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
+import { getDownloadUrl } from '@/lib/api';
+import axios from 'axios';
 
 function getPlayerSource(source: PlayerContextSource) {
   switch (source.type) {
@@ -60,6 +62,8 @@ export function PlayerFull() {
   const { currentTrack, volume, setVolume, source, playQueue, playTrack, queue } = usePlayer();
   const { toast } = useToast();
   const playlists = useLiveQuery(() => db.playlists.toArray(), []);
+  const downloadedTrack = useLiveQuery(() => currentTrack ? db.downloads.get(currentTrack.id) : undefined, [currentTrack?.id]);
+  const isDownloaded = !!downloadedTrack;
   
   const fallbackImage = placeholderImages[0];
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -125,6 +129,45 @@ export function PlayerFull() {
       setShowCreateDialog(false);
     } catch (error) {
       console.error('Failed to create playlist', error);
+    }
+  };
+
+  const handleSaveForOffline = async () => {
+    if (!currentTrack) return;
+    if (isDownloaded) {
+        toast({ title: 'Already Saved', description: 'You have already saved this track for offline use.' });
+        return;
+    }
+
+    toast({ title: 'Saving for Offline', description: `Downloading "${currentTrack.title}"... This may take a moment.` });
+    try {
+        const downloadUrl = getDownloadUrl(currentTrack.url);
+        const response = await axios.get(downloadUrl, { responseType: 'blob' });
+        const blob = response.data as Blob;
+
+        await db.downloads.add({
+            ...currentTrack,
+            blob: blob,
+            mimeType: blob.type,
+            size: blob.size,
+            downloadedAt: new Date().toISOString(),
+            originalUrl: currentTrack.url,
+        });
+        toast({ title: 'Saved for Offline', description: `"${currentTrack.title}" is now available for offline playback.` });
+    } catch (error) {
+        console.error("Offline save failed:", error);
+        toast({ variant: 'destructive', title: 'Offline Save Failed', description: 'Could not save the track for offline use due to a network or CORS issue.' });
+    }
+  };
+
+  const handleRemoveFromDownloads = async () => {
+    if (!currentTrack || !isDownloaded) return;
+    try {
+        await db.downloads.delete(currentTrack.id);
+        toast({ title: 'Removed from Downloads', description: `"${currentTrack.title}" has been removed.` });
+    } catch (error) {
+        console.error("Failed to remove download", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the download.' });
     }
   };
 
@@ -243,6 +286,27 @@ export function PlayerFull() {
                       </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" disabled={!currentTrack}>
+                        <Download className="w-5 h-5 text-muted-foreground"/>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    {isDownloaded ? (
+                        <DropdownMenuItem onClick={handleRemoveFromDownloads}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Remove from offline</span>
+                        </DropdownMenuItem>
+                    ) : (
+                        <DropdownMenuItem onClick={handleSaveForOffline}>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            <span>Save for offline</span>
+                        </DropdownMenuItem>
+                    )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
