@@ -100,10 +100,12 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
     setIsLoading(true);
     
+    // Determine if the playback context (the list of songs) has changed.
     const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
     
     if (isNewContext) {
-        setQueue(newQueue.length > 0 ? newQueue : [track]);
+        const contextQueue = newQueue.length > 0 ? newQueue : [track];
+        setQueue(contextQueue);
         setSource(sourceInfo);
     }
     
@@ -308,12 +310,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   }, [isPlaying, updatePositionState]);
 
   useEffect(() => {
-    if (progress > 0) {
-      updatePositionState();
-    }
-  }, [progress, updatePositionState]);
-
-  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -418,3 +414,5 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
     </PlayerProvider>
   )
 }
+
+    
