@@ -30,8 +30,8 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    if (recentTracks && recentTracks.length > 0) {
-      startRecommendationTransition(async () => {
+    startRecommendationTransition(async () => {
+      if (recentTracks && recentTracks.length > 0) {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           const { recommendations } = await recommendMusic({ recentTracks: recent });
@@ -57,19 +57,19 @@ export default function HomePage() {
             viewCount: 0,
           })));
         }
-      });
-    } else {
-        // Fallback for new users
-        setRecommended(placeholderImages.slice(0, 4).map(p => ({
-            id: p.id,
-            title: p.description,
-            artist: 'Various Artists',
-            duration: 0,
-            thumbnail: p.imageUrl,
-            url: '',
-            viewCount: 0,
-          })));
-    }
+      } else {
+          // Fallback for new users
+          setRecommended(placeholderImages.slice(0, 4).map(p => ({
+              id: p.id,
+              title: p.description,
+              artist: 'Various Artists',
+              duration: 0,
+              thumbnail: p.imageUrl,
+              url: '',
+              viewCount: 0,
+            })));
+      }
+    });
   }, [recentTracks]);
 
   const recentlyPlayedItems = useMemo(() => {
