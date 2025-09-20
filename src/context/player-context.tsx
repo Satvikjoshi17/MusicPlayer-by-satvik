@@ -171,7 +171,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audio.current.play();
       }
     }
   }, [audioRef, isPlaying, currentTrack]);
@@ -305,10 +305,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
   }, [currentTrack, togglePlay, skipPrev, skipNext, duration, audioRef, updatePositionState]);
   
-  useEffect(() => {
-    updatePositionState();
-  }, [isPlaying, updatePositionState]);
-
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
