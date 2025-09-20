@@ -104,26 +104,29 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     const currentPlayId = playIdRef.current;
 
     setIsLoading(true);
+    setCurrentTrack(track); // Set current track immediately for UI responsiveness
     
     const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
     
-    const targetQueue = isNewContext ? (newQueue.length > 0 ? newQueue : [track]) : queue;
-
+    let targetQueue: Track[];
     if (isNewContext) {
-        setQueue(targetQueue);
-        setSource(sourceInfo);
+      targetQueue = newQueue.length > 0 ? newQueue : [track];
+      setQueue(targetQueue);
+      setSource(sourceInfo);
+    } else {
+      targetQueue = queue;
     }
     
     const trackIndex = targetQueue.findIndex(t => t.id === track.id);
     const newPlayQueue = trackIndex !== -1 ? targetQueue.slice(trackIndex) : [track];
     
     setPlayQueue(newPlayQueue);
-    setCurrentTrack(track);
     addTrackToRecents(track);
 
     if (isShuffled) {
-        const otherTracks = newPlayQueue.filter(t => t.id !== track.id);
-        const shuffled = [...otherTracks].sort(() => Math.random() - 0.5);
+        // Re-shuffle only if context changes, otherwise just reorder
+        const upcomingTracks = newPlayQueue.filter(t => t.id !== track.id);
+        const shuffled = [...upcomingTracks].sort(() => Math.random() - 0.5);
         shuffled.unshift(track);
         setShuffledPlayQueue(shuffled);
     } else {
@@ -134,6 +137,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
         if (!audioRef.current) return;
         audioRef.current.pause();
 
+        // Revoke the previous blob URL if it exists
         if (currentBlobUrl.current) {
             URL.revokeObjectURL(currentBlobUrl.current);
             currentBlobUrl.current = null;
@@ -145,7 +149,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
             if (downloadedTrack?.blob) {
                 finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
-                currentBlobUrl.current = finalStreamUrl;
+                currentBlobUrl.current = finalStreamUrl; // Store the new blob URL
             } else {
                 const { streamUrl } = await getStreamUrl(track.url);
                 finalStreamUrl = streamUrl;
@@ -187,13 +191,11 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       return;
     }
     
-    // Add to the main queue if not there
     setQueue(prev => {
         if (prev.find(t => t.id === track.id)) return prev;
         return [...prev, track];
     });
     
-    // Add to play queue (after current track)
     setPlayQueue(prev => {
         const newQueue = [...prev];
         if (newQueue.findIndex(t => t.id === track.id) === -1) {
@@ -202,7 +204,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
         return newQueue;
     });
 
-    // If shuffled, add to shuffled queue too
     if (isShuffled) {
         setShuffledPlayQueue(prev => {
             const newQueue = [...prev];
@@ -238,8 +239,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     if (currentIndex !== -1 && currentIndex < activeQueue.length - 1) {
       nextTrack = activeQueue[currentIndex + 1];
     } else if (loopMode === 'queue' && queue.length > 0) {
-      // If at end of play queue, loop back to start of full queue
-      nextTrack = queue[0];
+      nextTrack = isShuffled ? (shuffledPlayQueue[0] ?? queue[0]) : queue[0];
     }
     
     if (nextTrack) {
@@ -266,20 +266,19 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
 
     const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
-    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
-    const entireContextQueue = isShuffled ? activeQueue : queue;
-
+    const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
+    
     if (currentIndex <= 0) {
-        if (loopMode === 'queue' && entireContextQueue.length > 0) {
-            playTrack(entireContextQueue[entireContextQueue.length-1], entireContextQueue, source);
+        if (loopMode === 'queue' && queue.length > 0) {
+            playTrack(queue[queue.length - 1], queue, source);
         } else {
             if (audioRef.current) audioRef.current.currentTime = 0;
         }
         return;
     }
     
-    const prevTrack = activeQueue[currentIndex - 1];
-    playTrack(prevTrack, entireContextQueue, source);
+    const prevTrack = queue[currentIndex - 1];
+    playTrack(prevTrack, queue, source);
 
   }, [currentTrack, queue, playTrack, loopMode, source, audioRef, isShuffled, shuffledPlayQueue, playQueue]);
   
@@ -294,26 +293,15 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     const newState = !isShuffled;
     setIsShuffled(newState);
 
-    if (newState) {
-        // If turning shuffle on, create a shuffled version of the upcoming tracks.
-        const currentIdx = playQueue.findIndex(t => t.id === currentTrack?.id);
-        const upNext = currentIdx > -1 ? playQueue.slice(currentIdx + 1) : playQueue;
+    if (newState && currentTrack) {
+        const upNext = playQueue.filter(t => t.id !== currentTrack.id);
         const shuffled = [...upNext].sort(() => Math.random() - 0.5);
-        if (currentTrack) {
-          shuffled.unshift(currentTrack);
-        }
+        shuffled.unshift(currentTrack);
         setShuffledPlayQueue(shuffled);
     } else {
-        // If turning shuffle off, revert to the original play order.
-        if (currentTrack) {
-            const currentIdx = queue.findIndex(t => t.id === currentTrack.id);
-            setPlayQueue(currentIdx > -1 ? queue.slice(currentIdx) : queue);
-        } else {
-            setPlayQueue(queue);
-        }
         setShuffledPlayQueue([]);
     }
-  }, [isShuffled, queue, playQueue, currentTrack]);
+  }, [isShuffled, playQueue, currentTrack]);
 
   const toggleLoopMode = () => {
     setLoopMode(prev => {
@@ -384,7 +372,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       updatePositionState();
     };
     const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
+      if (isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
       setIsLoading(false);
       updatePositionState();
     }
@@ -477,7 +467,3 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
     </PlayerProvider>
   )
 }
-
-    
-
-    
