@@ -104,13 +104,13 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     // Determine if the playback context (the list of songs) has changed.
     const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
     
+    const targetQueue = isNewContext ? (newQueue.length > 0 ? newQueue : [track]) : queue;
+
     if (isNewContext) {
-        const contextQueue = newQueue.length > 0 ? newQueue : [track];
-        setQueue(contextQueue);
+        setQueue(targetQueue);
         setSource(sourceInfo);
     }
     
-    const targetQueue = isNewContext ? (newQueue.length > 0 ? newQueue : [track]) : queue;
     const trackIndex = targetQueue.findIndex(t => t.id === track.id);
     const newPlayQueue = trackIndex !== -1 ? targetQueue.slice(trackIndex) : [track];
     
@@ -183,7 +183,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     // Add to play queue (after current track)
     setPlayQueue(prev => {
         const newQueue = [...prev];
-        newQueue.splice(1, 0, track);
+        if (newQueue.findIndex(t => t.id === track.id) === -1) {
+            newQueue.splice(1, 0, track);
+        }
         return newQueue;
     });
 
@@ -191,7 +193,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     if (isShuffled) {
         setShuffledPlayQueue(prev => {
             const newQueue = [...prev];
-            newQueue.splice(1, 0, track); // Add after current track
+            if (newQueue.findIndex(t => t.id === track.id) === -1) {
+                newQueue.splice(1, 0, track);
+            }
             return newQueue;
         });
     }
@@ -215,10 +219,12 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   const skipNext = useCallback(() => {
     const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
     const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
+    
+    const entireContextQueue = isShuffled ? activeQueue : queue;
 
     if (currentIndex === -1 || currentIndex === activeQueue.length - 1) {
-       if (loopMode === 'queue' && queue.length > 0) {
-         playTrack(queue[0], queue, source);
+       if (loopMode === 'queue' && entireContextQueue.length > 0) {
+         playTrack(entireContextQueue[0], entireContextQueue, source);
        } else {
          setIsPlaying(false);
          if(audioRef.current) audioRef.current.currentTime = duration;
@@ -227,7 +233,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
     
     const nextTrack = activeQueue[currentIndex + 1];
-    playTrack(nextTrack, queue, source);
+    playTrack(nextTrack, entireContextQueue, source);
 
   }, [isShuffled, shuffledPlayQueue, playQueue, loopMode, queue, playTrack, source, duration, audioRef, currentTrack]);
 
@@ -248,10 +254,11 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
     const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
     const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
+    const entireContextQueue = isShuffled ? activeQueue : queue;
 
     if (currentIndex <= 0) {
-        if (loopMode === 'queue' && queue.length > 0) {
-            playTrack(queue[queue.length-1], queue, source);
+        if (loopMode === 'queue' && entireContextQueue.length > 0) {
+            playTrack(entireContextQueue[entireContextQueue.length-1], entireContextQueue, source);
         } else {
             if (audioRef.current) audioRef.current.currentTime = 0;
         }
@@ -259,7 +266,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
     
     const prevTrack = activeQueue[currentIndex - 1];
-    playTrack(prevTrack, queue, source);
+    playTrack(prevTrack, entireContextQueue, source);
 
   }, [currentTrack, queue, playTrack, loopMode, source, audioRef, isShuffled, shuffledPlayQueue, playQueue]);
   
@@ -275,16 +282,19 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     setIsShuffled(newState);
 
     if (newState) {
-        const otherTracks = playQueue.filter(t => t.id !== currentTrack?.id);
-        const shuffled = [...otherTracks].sort(() => Math.random() - 0.5);
+        const currentIdx = queue.findIndex(t => t.id === currentTrack?.id);
+        const upNext = queue.slice(currentIdx + 1);
+        const shuffled = [...upNext].sort(() => Math.random() - 0.5);
         if (currentTrack) {
           shuffled.unshift(currentTrack);
         }
         setShuffledPlayQueue(shuffled);
     } else {
+        const currentIdx = queue.findIndex(t => t.id === currentTrack?.id);
+        setPlayQueue(currentIdx > -1 ? queue.slice(currentIdx) : queue);
         setShuffledPlayQueue([]);
     }
-  }, [isShuffled, playQueue, currentTrack]);
+  }, [isShuffled, queue, currentTrack]);
 
   const toggleLoopMode = () => {
     setLoopMode(prev => {
@@ -450,5 +460,7 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
     </PlayerProvider>
   )
 }
+
+    
 
     
