@@ -132,6 +132,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
         if (!audioRef.current) return;
         audioRef.current.pause();
 
+        // Revoke the old blob URL if it exists, before setting a new src
         if (currentBlobUrl.current) {
             URL.revokeObjectURL(currentBlobUrl.current);
             currentBlobUrl.current = null;
@@ -143,7 +144,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
             if (downloadedTrack?.blob) {
                 finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
-                currentBlobUrl.current = finalStreamUrl;
+                currentBlobUrl.current = finalStreamUrl; // Store the new blob URL
             } else {
                 const { streamUrl } = await getStreamUrl(track.url);
                 finalStreamUrl = streamUrl;
@@ -396,6 +397,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   }, [volume, audioRef]);
 
   useEffect(() => {
+    // Final cleanup when the provider unmounts
     return () => {
       if (currentBlobUrl.current) {
         URL.revokeObjectURL(currentBlobUrl.current);
