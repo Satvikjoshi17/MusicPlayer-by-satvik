@@ -36,10 +36,10 @@ export function SearchClientPage() {
         if (!ignore) {
           setResults(searchResults);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
         if (!ignore) {
-          setError('Failed to fetch search results. The server might be down.');
+          setError(e.message || 'Failed to fetch search results. The server might be down.');
         }
       }
     });
