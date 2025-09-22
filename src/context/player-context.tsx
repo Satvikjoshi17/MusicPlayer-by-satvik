@@ -109,6 +109,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     audio.pause();
     audio.src = '';
     
+    // Reset state for the new track
+    setProgress(0);
+    setDuration(0);
     setIsLoading(true);
     setCurrentTrack(track);
     
