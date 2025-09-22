@@ -1,69 +1,19 @@
 'use server';
 /**
- * @fileOverview A music recommendation AI agent.
+ * @fileOverview A server action to trigger the music recommendation AI flow.
  *
  * - recommendMusic - A function that handles the music recommendation process.
  * - RecommendMusicInput - The input type for the recommendMusic function.
  * - RecommendMusicOutput - The return type for the recommendMusic function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { recommendMusicFlow, RecommendMusicInput, RecommendMusicOutput } from './recommend-music-flow.internal';
 
-const RecommendedTrackSchema = z.object({
-  artist: z.string().describe('The artist of the recommended song.'),
-  title: z.string().describe('The title of the recommended song.'),
-  url: z.string().url().describe("A YouTube URL for the recommended song."),
-  duration: z.number().describe("The duration of the song in seconds."),
-  reason: z.string().describe('A short, friendly sentence explaining why this track is recommended based on the recent tracks.'),
-});
-
-const RecommendMusicInputSchema = z.object({
-  recentTracks: z.array(z.object({
-    title: z.string(),
-    artist: z.string(),
-  })).describe('A list of recently played tracks.'),
-});
-export type RecommendMusicInput = z.infer<typeof RecommendMusicInputSchema>;
-
-const RecommendMusicOutputSchema = z.object({
-  recommendations: z.array(RecommendedTrackSchema).describe('A list of 4 recommended songs.'),
-});
-export type RecommendMusicOutput = z.infer<typeof RecommendMusicOutputSchema>;
+// Re-export types for client-side usage
+export type { RecommendMusicInput, RecommendMusicOutput };
 
 export async function recommendMusic(input: RecommendMusicInput): Promise<RecommendMusicOutput> {
+  // If there are no recent tracks, the AI will recommend popular songs based on the prompt.
+  // The prompt is designed to handle this case gracefully.
   return recommendMusicFlow(input);
 }
-
-const prompt = ai.definePrompt({
-  name: 'recommendMusicPrompt',
-  input: {schema: RecommendMusicInputSchema},
-  output: {schema: RecommendMusicOutputSchema},
-  prompt: `You are a music recommendation expert. Based on the following list of recently played tracks, please recommend 4 new and different songs that the user might like.
-
-For each song, you must provide a valid YouTube URL and a short, friendly sentence explaining why you are recommending it (e.g., "Because you like [Artist/Genre], you might enjoy this.").
-
-Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
-
-If the list of recent tracks is very short (1 or 2 songs), you should still try to make a good recommendation, but you can also include some popular tracks from different genres to give the user some variety.
-
-Recently Played:
-{{#each recentTracks}}
-- "{{this.title}}" by {{this.artist}}
-{{/each}}
-`,
-});
-
-const recommendMusicFlow = ai.defineFlow(
-  {
-    name: 'recommendMusicFlow',
-    inputSchema: RecommendMusicInputSchema,
-    outputSchema: RecommendMusicOutputSchema,
-  },
-  async input => {
-    // If there are no recent tracks, the AI will recommend popular songs based on the prompt.
-    // The prompt is designed to handle this case gracefully.
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
