@@ -486,7 +486,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     skipPrev,
     setVolume,
     toggleShuffle,
-    toggleLoopMode,
+toggleLoopMode,
     setIsSeeking,
   };
 
