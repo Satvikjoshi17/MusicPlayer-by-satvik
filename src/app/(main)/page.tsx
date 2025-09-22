@@ -112,18 +112,20 @@ export default function HomePage() {
       });
     } else if (recommendations.length === 0 && recentTracks.length === 0) {
         // Handle case for a brand new user with no tracks played yet - show one placeholder playlist
-        setRecommendations([{
-          playlistTitle: 'Popular Playlists',
-          tracks: placeholderImages.slice(0, 6).map(p => ({
-            id: p.id,
-            title: p.description,
-            artist: 'Various Artists',
-            duration: 0,
-            thumbnail: p.imageUrl,
-            url: '', // No URL for placeholders
-            viewCount: 0,
-          }))
-        }]);
+        if (recommendations.length === 0) { // check to prevent re-setting
+            setRecommendations([{
+                playlistTitle: 'Popular Playlists',
+                tracks: placeholderImages.slice(0, 6).map(p => ({
+                    id: p.id,
+                    title: p.description,
+                    artist: 'Various Artists',
+                    duration: 0,
+                    thumbnail: p.imageUrl,
+                    url: '', // No URL for placeholders
+                    viewCount: 0,
+                }))
+            }]);
+        }
     }
   }, [recentTracks]); // Only depends on recentTracks now.
 
@@ -154,6 +156,13 @@ export default function HomePage() {
     if (!track.url) return;
     const playableTracks = playlist.tracks.filter(t => t.url);
     playTrack(track, playableTracks, { type: 'search', query: playlist.playlistTitle });
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    // If a YouTube thumbnail fails to load, fall back to a placeholder.
+    const target = e.target as HTMLImageElement;
+    const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
+    target.src = placeholderImages[placeholderIndex].imageUrl;
   };
 
   return (
@@ -207,6 +216,7 @@ export default function HomePage() {
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                         data-ai-hint="album cover"
+                        onError={handleImageError}
                       />
                       {track.url && (
                           <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -265,6 +275,7 @@ export default function HomePage() {
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                     data-ai-hint={item.imageHint}
+                    onError={handleImageError}
                   />
                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
                    <div className="p-3 absolute bottom-0 left-0 w-full pointer-events-none">
