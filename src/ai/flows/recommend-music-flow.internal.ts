@@ -5,7 +5,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { verifyTrackUrlFlow } from './verify-track-url-flow';
+import { verifyTrackUrl } from './verify-track-url-flow';
 
 const RecommendedTrackSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
@@ -69,18 +69,20 @@ export const recommendMusicFlow = ai.defineFlow(
       throw new Error('Failed to get recommendations from AI');
     }
 
-    const verifiedRecommendations = [];
-    for (const track of output.recommendations) {
+    // Verify all tracks in parallel for performance.
+    const verificationPromises = output.recommendations.map(async (track) => {
       try {
-        const isVerified = await verifyTrackUrlFlow({ youtubeUrl: track.url });
-        if (isVerified) {
-          verifiedRecommendations.push(track);
-        }
+        const isVerified = await verifyTrackUrl({ youtubeUrl: track.url });
+        return isVerified ? track : null;
       } catch (e) {
         console.warn(`Could not verify track "${track.title}", excluding it.`, e);
+        return null;
       }
-    }
-    
+    });
+
+    const verificationResults = await Promise.all(verificationPromises);
+    const verifiedRecommendations = verificationResults.filter((track): track is z.infer<typeof RecommendedTrackSchema> => track !== null);
+
     // If we have fewer than 3 verified tracks, something is wrong with the AI output,
     // so we should probably fail gracefully instead of showing a tiny playlist.
     if (verifiedRecommendations.length < 3) {
