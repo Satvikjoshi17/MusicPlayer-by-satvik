@@ -5,8 +5,7 @@ const API_BASE_URL = 'https://musicplayerbackend-us5o.onrender.com';
 export async function searchTracks(query: string): Promise<Track[]> {
   if (!query) return [];
 
-  // The backend endpoint is /api/search/ but the base URL already ends with /api
-  // So we just need to call search/
+  // The backend endpoint for search is /api/search
   const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
   if (!response.ok) {
     throw new Error('Failed to fetch search results');
