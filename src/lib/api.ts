@@ -13,6 +13,8 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
   }
 
   const timeoutId = setTimeout(() => {
+      // Only abort if we created the controller. If the signal was passed in,
+      // the caller is responsible for aborting it.
       controller?.abort();
   }, timeout);
 
@@ -23,7 +25,8 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      // Re-throw if it's an external signal, otherwise it's a timeout.
+      // Re-throw if it's an external signal that was aborted. This is expected.
+      // If we created the controller, it means our internal timeout was triggered.
       if (options.signal?.aborted && !controller) {
         throw error;
       }
@@ -39,7 +42,8 @@ export async function searchTracks(query: string, signal?: AbortSignal): Promise
   const url = `${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`;
   
   try {
-    const response = await fetchWithTimeout(url, { signal });
+    // Use the default 15 second timeout for search
+    const response = await fetchWithTimeout(url, { signal }, FETCH_TIMEOUT);
     if (!response.ok) {
       const errorBody = await response.text();
       console.error("Search API returned an error:", response.status, errorBody);
