@@ -17,8 +17,9 @@ import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 4;
+const MAX_PLAYLISTS = 3;
 
-type RecommendationState = {
+type RecommendationPlaylist = {
   playlistTitle: string;
   tracks: Track[];
 };
@@ -26,49 +27,34 @@ type RecommendationState = {
 export default function HomePage() {
   const { playTrack } = usePlayer();
 
-  const [recommendation, setRecommendation] = useState<RecommendationState | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>([]);
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecommendationTrackCount = useRef(0);
 
   const recentTracks = useLiveQuery(
-    () => db.recent.orderBy('lastPlayedAt').reverse().limit(8).toArray(),
+    () => db.recent.orderBy('lastPlayedAt').reverse().limit(10).toArray(),
     []
   );
 
   useEffect(() => {
     if (!recentTracks) return;
 
-    const shouldRefreshForNewUser = !recommendation && recentTracks.length > 0;
-    const hasEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
+    const hasPlayedEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
+    const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0;
 
-    if (shouldRefreshForNewUser || hasEnoughNewTracks) {
+    if (hasPlayedEnoughNewTracks || shouldFetchInitial) {
       lastRecommendationTrackCount.current = recentTracks.length;
       
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           
-          if (recent.length === 0) {
-            setRecommendation({
-              playlistTitle: 'Popular Playlists',
-              tracks: placeholderImages.slice(0, 4).map(p => ({
-                id: p.id,
-                title: p.description,
-                artist: 'Various Artists',
-                duration: 0,
-                thumbnail: p.imageUrl,
-                url: '', // No URL for placeholders
-                viewCount: 0,
-                reason: 'Listen to some music to get started with personalized recommendations.'
-              }))
-            });
-            return;
-          }
+          if (recent.length === 0) return; // Should be covered by initial state, but as a safeguard
 
-          const { playlistTitle, recommendations } = await recommendMusic({ recentTracks: recent });
+          const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent });
           
-          const fullTracks: Track[] = recommendations.slice(0, 4).map((rec) => {
-            let thumbnail = placeholderImages[0].imageUrl; // Default placeholder
+          const fullTracks: Track[] = newTracks.slice(0, 6).map((rec) => {
+            let thumbnail = placeholderImages[0].imageUrl;
             try {
               const videoId = new URL(rec.url).searchParams.get('v');
               if (videoId) {
@@ -86,33 +72,29 @@ export default function HomePage() {
               thumbnail: thumbnail,
               url: rec.url,
               viewCount: 0,
-              reason: rec.reason,
             };
           });
 
-          setRecommendation({ playlistTitle, tracks: fullTracks });
+          const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: fullTracks };
+          
+          setRecommendations(prev => {
+              const updatedPlaylists = [...prev, newPlaylist];
+              if (updatedPlaylists.length > MAX_PLAYLISTS) {
+                  return updatedPlaylists.slice(1); // Remove the oldest playlist
+              }
+              return updatedPlaylists;
+          });
+
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-           setRecommendation({
-              playlistTitle: 'Try These',
-              tracks: placeholderImages.slice(0, 4).map(p => ({
-                id: p.id,
-                title: p.description,
-                artist: 'Various Artists',
-                duration: 0,
-                thumbnail: p.imageUrl,
-                url: '', // No URL for placeholders
-                viewCount: 0,
-                reason: 'Could not fetch AI recommendations. Check your connection or API key.'
-              }))
-           });
+          // Don't add a failure playlist, just log the error. The UI will show existing ones.
         }
       });
-    } else if (!recommendation && recentTracks.length === 0) {
-        // Handle case for a brand new user with no tracks played yet
-        setRecommendation({
-          playlistTitle: 'Get Started',
-          tracks: placeholderImages.slice(0, 4).map(p => ({
+    } else if (recommendations.length === 0 && recentTracks.length === 0) {
+        // Handle case for a brand new user with no tracks played yet - show one placeholder playlist
+        setRecommendations([{
+          playlistTitle: 'Popular Playlists',
+          tracks: placeholderImages.slice(0, 6).map(p => ({
             id: p.id,
             title: p.description,
             artist: 'Various Artists',
@@ -120,15 +102,14 @@ export default function HomePage() {
             thumbnail: p.imageUrl,
             url: '', // No URL for placeholders
             viewCount: 0,
-            reason: 'Popular playlists to get you started.'
           }))
-        });
+        }]);
     }
-  }, [recentTracks, recommendation]);
+  }, [recentTracks, recommendations]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
-      return placeholderImages.slice(4, 8).map(p => ({...p, isPlaceholder: true}));
+      return placeholderImages.slice(0, 4).map(p => ({...p, isPlaceholder: true}));
     }
     return recentTracks.slice(0, 4).map((track, index) => ({
       id: track.id,
@@ -151,10 +132,10 @@ export default function HomePage() {
     playTrack(item.track, playlist, { type: 'recent' });
   };
   
-  const handlePlayRecommendation = (track: Track) => {
-    if (!track.url || !recommendation) return; // Don't play placeholder fallbacks
-    const playableTracks = recommendation.tracks.filter(t => t.url);
-    playTrack(track, playableTracks, { type: 'search', query: recommendation.playlistTitle });
+  const handlePlayRecommendation = (track: Track, playlist: RecommendationPlaylist) => {
+    if (!track.url) return;
+    const playableTracks = playlist.tracks.filter(t => t.url);
+    playTrack(track, playableTracks, { type: 'search', query: playlist.playlistTitle });
   };
 
   return (
@@ -167,65 +148,85 @@ export default function HomePage() {
           Stream and enjoy your favorite music.
         </p>
       </header>
-
-      <section>
-        <div className="flex items-center gap-3 mb-4">
-            <Music className="w-8 h-8 text-primary" />
-            <h2 className="text-2xl font-bold font-headline">
-              {isRecommendationPending || !recommendation ? (
-                <Skeleton className="h-8 w-48" />
-              ) : (
-                recommendation.playlistTitle
-              )}
-            </h2>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {isRecommendationPending || !recommendation ? (
-            Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="bg-secondary border-0">
-                    <CardContent className="p-0">
-                        <Skeleton className="aspect-square w-full" />
-                        <div className="p-3">
-                            <Skeleton className="h-5 w-3/4 mb-2" />
-                            <Skeleton className="h-4 w-1/2" />
-                        </div>
+      
+      <section className="space-y-8">
+        {(isRecommendationPending && recommendations.length === 0) ? (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                  <Music className="w-8 h-8 text-primary" />
+                  <Skeleton className="h-8 w-48" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                      <Card key={i} className="bg-secondary border-0">
+                          <CardContent className="p-0">
+                              <Skeleton className="aspect-square w-full" />
+                              <div className="p-3">
+                                  <Skeleton className="h-5 w-3/4 mb-2" />
+                                  <Skeleton className="h-4 w-1/2" />
+                              </div>
+                          </CardContent>
+                      </Card>
+                  ))}
+              </div>
+            </div>
+        ) : (
+          recommendations.map((playlist, playlistIndex) => (
+            <div key={playlist.playlistTitle + playlistIndex}>
+              <div className="flex items-center gap-3 mb-4">
+                  <Music className="w-8 h-8 text-primary" />
+                  <h2 className="text-2xl font-bold font-headline">
+                    {playlist.playlistTitle}
+                  </h2>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                {playlist.tracks.map((track) => (
+                  <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group h-full flex flex-col", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track, playlist)}>
+                    <div className="aspect-square relative">
+                      <Image
+                        src={track.thumbnail || placeholderImages[0].imageUrl}
+                        alt={track.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        data-ai-hint="album cover"
+                      />
+                      {track.url && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Play className="w-12 h-12 text-white fill-white" />
+                          </div>
+                      )}
+                      {track.url && (
+                         <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                            <TrackActions track={track} context={{ type: 'search' }} >
+                                <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
+                                    <MoreVertical className="w-4 h-4"/>
+                                </Button>
+                            </TrackActions>
+                         </div>
+                      )}
+                    </div>
+                    <CardContent className="p-3 flex-1 flex flex-col">
+                       <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
+                       <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
                     </CardContent>
-                </Card>
-            ))
-          ) : (
-            recommendation.tracks.map((track) => (
-              <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group h-full flex flex-col", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track)}>
-                <div className="aspect-square relative">
-                  <Image
-                    src={track.thumbnail || placeholderImages[0].imageUrl}
-                    alt={track.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    data-ai-hint="album cover"
-                  />
-                  {track.url && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Play className="w-12 h-12 text-white fill-white" />
-                      </div>
-                  )}
-                  {track.url && (
-                     <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                        <TrackActions track={track} context={{ type: 'search' }} >
-                            <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
-                                <MoreVertical className="w-4 h-4"/>
-                            </Button>
-                        </TrackActions>
-                     </div>
-                  )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+         {isRecommendationPending && recommendations.length > 0 && (
+            <div className="text-center text-muted-foreground py-8 flex items-center justify-center gap-2">
+                <div role="status">
+                    <svg aria-hidden="true" className="w-6 h-6 text-primary animate-spin" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0492C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                    </svg>
+                    <span className="sr-only">Loading...</span>
                 </div>
-                <CardContent className="p-3 flex-1 flex flex-col">
-                   <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
-                   <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                </CardContent>
-              </Card>
-            ))
+                <p>Curating new music for you...</p>
+            </div>
           )}
-        </div>
       </section>
 
       <section>
@@ -235,7 +236,7 @@ export default function HomePage() {
             <Link href="/recent">See all</Link>
           </Button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {recentlyPlayedItems.map((item) => (
             <Card key={item.id} className={cn("bg-secondary border-0 overflow-hidden group", !item.isPlaceholder && "cursor-pointer")} onClick={() => handlePlayRecent(item as any)}>
               <CardContent className="p-0">
