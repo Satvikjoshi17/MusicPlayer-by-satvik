@@ -13,7 +13,17 @@ import { recommendMusicFlow, RecommendMusicInput, RecommendMusicOutput } from '.
 export type { RecommendMusicInput, RecommendMusicOutput };
 
 export async function recommendMusic(input: RecommendMusicInput): Promise<RecommendMusicOutput> {
-  // If there are no recent tracks, the AI will recommend popular songs based on the prompt.
-  // The prompt is designed to handle this case gracefully.
-  return recommendMusicFlow(input);
+  try {
+    // If there are no recent tracks, the AI will recommend popular songs based on the prompt.
+    // The prompt is designed to handle this case gracefully.
+    return await recommendMusicFlow(input);
+  } catch (error: any) {
+    // Log the detailed error on the server for debugging purposes.
+    // This is especially useful for API key or permission issues with the AI service.
+    console.error(`[AI FLOW ERROR] Failed to execute recommendMusicFlow: ${error.message}`);
+    
+    // It's important to re-throw the error to let the client-side know something went wrong.
+    // Next.js will sanitize this error for the client in production.
+    throw new Error('Failed to get music recommendations from the server.');
+  }
 }
