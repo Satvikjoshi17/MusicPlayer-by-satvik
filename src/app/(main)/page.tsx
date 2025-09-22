@@ -259,7 +259,7 @@ export default function HomePage() {
                       )}
                       {track.url && (
                          <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                            <TrackActions track={track} context={{ type: 'search' }} >
+                            <TrackActions track={track} context={{ type: 'playlist', playlistId: playlist.playlistTitle }}>
                                 <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
                                     <MoreVertical className="w-4 h-4"/>
                                 </Button>
