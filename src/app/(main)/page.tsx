@@ -17,13 +17,15 @@ import { MoreVertical, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 
+const RECOMMENDATION_REFRESH_THRESHOLD = 3;
+
 export default function HomePage() {
   const { playTrack } = usePlayer();
   const router = useRouter();
 
   const [recommended, setRecommended] = useState<Track[]>([]);
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
-  const recentTracksHistorySize = useRef(0);
+  const lastRecommendationTrackCount = useRef(0);
 
   const recentTracks = useLiveQuery(
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(8).toArray(),
@@ -31,14 +33,21 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    if (recentTracks && (recentTracks.length > recentTracksHistorySize.current || (recentTracks.length === 0 && recommended.length === 0))) {
-      recentTracksHistorySize.current = recentTracks.length;
+    if (!recentTracks) return;
+
+    const shouldRefreshForNewUser = recommended.length === 0 && recentTracks.length > 0;
+    const hasEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
+
+    if (shouldRefreshForNewUser || hasEnoughNewTracks) {
+      lastRecommendationTrackCount.current = recentTracks.length;
+      
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
+          
           if (recent.length === 0) {
-            // Handle new user case directly on the client
-            const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+            // This case should ideally not be hit if we have tracks, but as a fallback.
+             const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
               id: p.id,
               title: p.description,
               artist: 'Various Artists',
@@ -62,7 +71,6 @@ export default function HomePage() {
                 thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
               }
             } catch (e) {
-              // If URL is invalid, placeholder is already set
               console.error("Invalid video URL from AI:", rec.url);
             }
 
@@ -81,20 +89,31 @@ export default function HomePage() {
           setRecommended(fullTracks);
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          startRecommendationTransition(() => {
-            const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
-                id: p.id,
-                title: p.description,
-                artist: 'Various Artists',
-                duration: 0,
-                thumbnail: p.imageUrl,
-                url: '',
-                viewCount: 0,
-            }));
-            setRecommended(fallbackTracks);
-          });
+           const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+              id: p.id,
+              title: p.description,
+              artist: 'Various Artists',
+              duration: 0,
+              thumbnail: p.imageUrl,
+              url: '',
+              viewCount: 0,
+          }));
+          setRecommended(fallbackTracks);
         }
       });
+    } else if (recommended.length === 0 && recentTracks.length === 0) {
+        // Handle case for a brand new user with no tracks played yet
+        const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+            id: p.id,
+            title: p.description,
+            artist: 'Various Artists',
+            duration: 0,
+            thumbnail: p.imageUrl,
+            url: '',
+            viewCount: 0,
+            reason: 'Popular playlists to get you started.'
+        }));
+        setRecommended(fallbackTracks);
     }
   }, [recentTracks, recommended.length]);
 
