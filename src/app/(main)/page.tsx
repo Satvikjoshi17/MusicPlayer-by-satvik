@@ -36,9 +36,8 @@ export default function HomePage() {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           const { recommendations } = await recommendMusic({ recentTracks: recent });
           
-          // Map AI recommendations to Track objects
           const fullTracks: Track[] = recommendations.slice(0, 4).map(rec => ({
-            id: rec.url, // Use URL as a unique ID for recommendations
+            id: rec.url,
             title: rec.title,
             artist: rec.artist,
             duration: rec.duration,
@@ -51,30 +50,26 @@ export default function HomePage() {
           setRecommended(fullTracks);
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          // Fallback to placeholders if AI fails
           setRecommended(placeholderImages.slice(0, 4).map(p => ({
             id: p.id,
             title: p.description,
             artist: 'Various Artists',
             duration: 0,
             thumbnail: p.imageUrl,
-            url: '', // This makes it unplayable
+            url: '',
             viewCount: 0,
           })));
         }
-      } else {
-        // Fallback for new users
-        startRecommendationTransition(() => {
-          setRecommended(placeholderImages.slice(0, 4).map(p => ({
-              id: p.id,
-              title: p.description,
-              artist: 'Various Artists',
-              duration: 0,
-              thumbnail: p.imageUrl,
-              url: '', // This makes it unplayable
-              viewCount: 0,
-            })));
-        });
+      } else if (recentTracks) {
+        setRecommended(placeholderImages.slice(0, 4).map(p => ({
+            id: p.id,
+            title: p.description,
+            artist: 'Various Artists',
+            duration: 0,
+            thumbnail: p.imageUrl,
+            url: '',
+            viewCount: 0,
+        })));
       }
     });
   }, [recentTracks]);
