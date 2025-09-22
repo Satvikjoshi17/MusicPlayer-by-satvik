@@ -161,7 +161,7 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 md:p-8 space-y-12">
       <header className="text-center md:text-left">
         <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-primary">
-          Welcome to Satvik Beats
+          Welcome to satvikx
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
           Stream and enjoy your favorite music.
