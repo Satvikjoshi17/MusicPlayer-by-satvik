@@ -184,13 +184,18 @@ export default function HomePage() {
   const handlePlayRecommendation = (track: Track, playlist: RecommendationPlaylist) => {
     if (!track.url) return;
     const playableTracks = playlist.tracks.filter(t => t.url);
-    playTrack(track, playableTracks, { type: 'search', query: playlist.playlistTitle });
+    playTrack(track, playableTracks, { type: 'playlist', playlist: { id: playlist.playlistTitle, name: playlist.playlistTitle, tracks: playableTracks, createdAt: '', updatedAt: '' } });
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
+    // Prevent infinite loop if placeholder also fails
+    if (target.src.startsWith('https://picsum.photos')) {
+        return;
+    }
     const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
     target.src = placeholderImages[placeholderIndex].imageUrl;
+    console.error("Image failed to load, fallback to placeholder:", target.alt);
   };
 
   return (
