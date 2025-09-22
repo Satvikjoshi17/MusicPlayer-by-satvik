@@ -8,22 +8,25 @@ import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
 import type { Track } from '@/lib/types';
 import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { recommendMusic } from '@/ai/flows/recommend-music-flow';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MoreVertical, Play } from 'lucide-react';
+import { MoreVertical, Play, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 
-const RECOMMENDATION_REFRESH_THRESHOLD = 3;
+const RECOMMENDATION_REFRESH_THRESHOLD = 4;
+
+type RecommendationState = {
+  playlistTitle: string;
+  tracks: Track[];
+};
 
 export default function HomePage() {
   const { playTrack } = usePlayer();
-  const router = useRouter();
 
-  const [recommended, setRecommended] = useState<Track[]>([]);
+  const [recommendation, setRecommendation] = useState<RecommendationState | null>(null);
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecommendationTrackCount = useRef(0);
 
@@ -35,7 +38,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!recentTracks) return;
 
-    const shouldRefreshForNewUser = recommended.length === 0 && recentTracks.length > 0;
+    const shouldRefreshForNewUser = !recommendation && recentTracks.length > 0;
     const hasEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
 
     if (shouldRefreshForNewUser || hasEnoughNewTracks) {
@@ -46,25 +49,26 @@ export default function HomePage() {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           
           if (recent.length === 0) {
-            // This case should ideally not be hit if we have tracks, but as a fallback.
-             const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
-              id: p.id,
-              title: p.description,
-              artist: 'Various Artists',
-              duration: 0,
-              thumbnail: p.imageUrl,
-              url: '',
-              viewCount: 0,
-              reason: 'Popular playlists to get you started.'
-            }));
-            setRecommended(fallbackTracks);
+            setRecommendation({
+              playlistTitle: 'Popular Playlists',
+              tracks: placeholderImages.slice(0, 4).map(p => ({
+                id: p.id,
+                title: p.description,
+                artist: 'Various Artists',
+                duration: 0,
+                thumbnail: p.imageUrl,
+                url: '', // No URL for placeholders
+                viewCount: 0,
+                reason: 'Listen to some music to get started with personalized recommendations.'
+              }))
+            });
             return;
           }
 
-          const { recommendations } = await recommendMusic({ recentTracks: recent });
+          const { playlistTitle, recommendations } = await recommendMusic({ recentTracks: recent });
           
-          const fullTracks: Track[] = recommendations.slice(0, 4).map((rec, index) => {
-            let thumbnail = placeholderImages[index].imageUrl; // Default to placeholder
+          const fullTracks: Track[] = recommendations.slice(0, 4).map((rec) => {
+            let thumbnail = placeholderImages[0].imageUrl; // Default placeholder
             try {
               const videoId = new URL(rec.url).searchParams.get('v');
               if (videoId) {
@@ -86,37 +90,41 @@ export default function HomePage() {
             };
           });
 
-          setRecommended(fullTracks);
+          setRecommendation({ playlistTitle, tracks: fullTracks });
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-           const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
-              id: p.id,
-              title: p.description,
-              artist: 'Various Artists',
-              duration: 0,
-              thumbnail: p.imageUrl,
-              url: '',
-              viewCount: 0,
-              reason: 'Could not fetch AI recommendations.'
-          }));
-          setRecommended(fallbackTracks);
+           setRecommendation({
+              playlistTitle: 'Try These',
+              tracks: placeholderImages.slice(0, 4).map(p => ({
+                id: p.id,
+                title: p.description,
+                artist: 'Various Artists',
+                duration: 0,
+                thumbnail: p.imageUrl,
+                url: '', // No URL for placeholders
+                viewCount: 0,
+                reason: 'Could not fetch AI recommendations. Check your connection or API key.'
+              }))
+           });
         }
       });
-    } else if (recommended.length === 0 && recentTracks.length === 0) {
+    } else if (!recommendation && recentTracks.length === 0) {
         // Handle case for a brand new user with no tracks played yet
-        const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+        setRecommendation({
+          playlistTitle: 'Get Started',
+          tracks: placeholderImages.slice(0, 4).map(p => ({
             id: p.id,
             title: p.description,
             artist: 'Various Artists',
             duration: 0,
             thumbnail: p.imageUrl,
-            url: '',
+            url: '', // No URL for placeholders
             viewCount: 0,
             reason: 'Popular playlists to get you started.'
-        }));
-        setRecommended(fallbackTracks);
+          }))
+        });
     }
-  }, [recentTracks, recommended.length]);
+  }, [recentTracks, recommendation]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
@@ -144,8 +152,9 @@ export default function HomePage() {
   };
   
   const handlePlayRecommendation = (track: Track) => {
-    if (!track.url) return; // Don't play placeholder fallbacks
-    playTrack(track, recommended.filter(t => t.url), { type: 'search', query: 'recommended' });
+    if (!track.url || !recommendation) return; // Don't play placeholder fallbacks
+    const playableTracks = recommendation.tracks.filter(t => t.url);
+    playTrack(track, playableTracks, { type: 'search', query: recommendation.playlistTitle });
   };
 
   return (
@@ -160,9 +169,18 @@ export default function HomePage() {
       </header>
 
       <section>
-        <h2 className="text-2xl font-bold font-headline mb-4">Recommended For You</h2>
+        <div className="flex items-center gap-3 mb-4">
+            <Music className="w-8 h-8 text-primary" />
+            <h2 className="text-2xl font-bold font-headline">
+              {isRecommendationPending || !recommendation ? (
+                <Skeleton className="h-8 w-48" />
+              ) : (
+                recommendation.playlistTitle
+              )}
+            </h2>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {isRecommendationPending || recommended.length === 0 ? (
+          {isRecommendationPending || !recommendation ? (
             Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i} className="bg-secondary border-0">
                     <CardContent className="p-0">
@@ -175,7 +193,7 @@ export default function HomePage() {
                 </Card>
             ))
           ) : (
-            recommended.map((track) => (
+            recommendation.tracks.map((track) => (
               <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group h-full flex flex-col", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track)}>
                 <div className="aspect-square relative">
                   <Image

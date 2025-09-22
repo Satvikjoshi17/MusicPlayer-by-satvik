@@ -11,7 +11,7 @@ const RecommendedTrackSchema = z.object({
   title: z.string().describe('The title of the recommended song.'),
   url: z.string().url().describe("A YouTube URL for the recommended song."),
   duration: z.number().describe("The duration of the song in seconds."),
-  reason: z.string().describe('A short, friendly sentence explaining why this track is recommended based on the recent tracks.'),
+  reason: z.string().describe('A short, friendly sentence explaining why this track is recommended based on the playlist theme.'),
 });
 
 const RecommendMusicInputSchema = z.object({
@@ -23,7 +23,8 @@ const RecommendMusicInputSchema = z.object({
 export type RecommendMusicInput = z.infer<typeof RecommendMusicInputSchema>;
 
 const RecommendMusicOutputSchema = z.object({
-  recommendations: z.array(RecommendedTrackSchema).describe('A list of 4 recommended songs.'),
+  playlistTitle: z.string().describe("A creative and short title for the recommended playlist based on the user's history (e.g., 'Indie Chill', 'Sunset Grooves')."),
+  recommendations: z.array(RecommendedTrackSchema).describe('A list of 4 recommended songs for the playlist.'),
 });
 export type RecommendMusicOutput = z.infer<typeof RecommendMusicOutputSchema>;
 
@@ -31,13 +32,17 @@ const prompt = ai.definePrompt({
   name: 'recommendMusicPrompt',
   input: {schema: RecommendMusicInputSchema},
   output: {schema: RecommendMusicOutputSchema},
-  prompt: `You are a music recommendation expert. Based on the following list of recently played tracks, please recommend 4 new and different songs that the user might like.
+  prompt: `You are an expert DJ who creates personalized playlists. Based on the user's listening history, create a themed playlist of 4 songs.
 
-For each song, you must provide a valid YouTube URL and a short, friendly sentence explaining why you are recommending it (e.g., "Because you like [Artist/Genre], you might enjoy this.").
+You must provide:
+1. A creative, short title for the playlist (e.g., "Late Night Drive", "Acoustic Mornings", "Synthwave Dreams").
+2. A list of 4 new and different songs that the user might like, matching the playlist theme.
+
+For each song, you must provide a valid YouTube URL and a short, friendly sentence explaining why it fits the playlist's theme.
 
 Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
 
-If the list of recent tracks is very short (1 or 2 songs), you should still try to make a good recommendation, but you can also include some popular tracks from different genres to give the user some variety.
+If the list of recent tracks is very short (1 or 2 songs), create a "Discovery Weekly" style playlist with popular tracks from related genres.
 
 Recently Played:
 {{#each recentTracks}}
