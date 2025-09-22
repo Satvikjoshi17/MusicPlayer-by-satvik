@@ -58,7 +58,7 @@ export default function HomePage() {
   );
   
   useEffect(() => {
-    if (!recentTracks) return;
+    if (recentTracks === undefined) return; // Still loading from DB
 
     // Condition 1: Initial load with some history but no recommendations yet.
     const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0 && !isRecommendationPending;
@@ -142,14 +142,12 @@ export default function HomePage() {
   }, [recentTracks]);
 
   const handlePlayRecent = (item: { track: Track, isPlaceholder?: boolean }) => {
-    if (item.isPlaceholder || !item.track) return;
+    if (item.isPlaceholder || !item.track || !recentTracks) return;
     
-    const playlist = recentlyPlayedItems
-        .filter(p => !p.isPlaceholder)
-        .map(p => p.track)
-        .filter((t): t is Track => !!t);
+    // The playlist should be the full list of recent tracks, not just the visible ones
+    const fullRecentPlaylist = recentTracks.map(t => t as Track);
 
-    playTrack(item.track, playlist, { type: 'recent' });
+    playTrack(item.track, fullRecentPlaylist, { type: 'recent' });
   };
   
   const handlePlayRecommendation = (track: Track, playlist: RecommendationPlaylist) => {
@@ -191,7 +189,7 @@ export default function HomePage() {
               </div>
             </div>
         ) : (
-          recommendations.map((playlist, playlistIndex) => (
+          recommendations.slice().reverse().map((playlist, playlistIndex) => (
             <div key={playlist.playlistTitle + playlistIndex}>
               <div className="flex items-center gap-3 mb-4">
                   <Music className="w-8 h-8 text-primary" />
