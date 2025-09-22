@@ -18,6 +18,8 @@ import { TrackActions } from '@/components/music/track-actions';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 4;
 const MAX_PLAYLISTS = 3;
+const LOCALSTORAGE_KEY = 'musicRecommendations';
+
 
 type RecommendationPlaylist = {
   playlistTitle: string;
@@ -48,7 +50,20 @@ function getYouTubeVideoId(url: string): string | null {
 export default function HomePage() {
   const { playTrack } = usePlayer();
 
-  const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>(() => {
+    // Load recommendations from localStorage on initial client-side render
+    if (typeof window === 'undefined') {
+      return [];
+    }
+    try {
+      const saved = window.localStorage.getItem(LOCALSTORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error("Failed to parse recommendations from localStorage", error);
+      return [];
+    }
+  });
+  
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecommendationTrackCount = useRef(0);
 
@@ -56,14 +71,20 @@ export default function HomePage() {
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(10).toArray(),
     []
   );
+
+  // Effect to save recommendations to localStorage whenever they change
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
+    } catch (error) {
+      console.error("Failed to save recommendations to localStorage", error);
+    }
+  }, [recommendations]);
   
   useEffect(() => {
     if (recentTracks === undefined) return; // Still loading from DB
 
-    // Condition 1: Initial load with some history but no recommendations yet.
     const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0 && !isRecommendationPending;
-    
-    // Condition 2: Played enough new tracks since the last recommendation.
     const hasPlayedEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
 
     if (shouldFetchInitial || hasPlayedEnoughNewTracks) {
@@ -100,19 +121,30 @@ export default function HomePage() {
           
           setRecommendations(prev => {
               const updatedPlaylists = [...prev, newPlaylist];
-              // Keep only the last MAX_PLAYLISTS playlists
               return updatedPlaylists.slice(-MAX_PLAYLISTS);
           });
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          // If the AI fails, we don't add a broken playlist.
-          // The UI will continue to show existing recommendations or the empty state.
+          // If AI fails, do not add a broken playlist. Fallback to placeholders if needed.
+          if (recommendations.length === 0) {
+             setRecommendations([{
+                playlistTitle: 'Popular Playlists',
+                tracks: placeholderImages.slice(0, 6).map(p => ({
+                    id: p.id,
+                    title: p.description,
+                    artist: 'Various Artists',
+                    duration: 0,
+                    thumbnail: p.imageUrl,
+                    url: '',
+                    viewCount: 0,
+                }))
+            }]);
+          }
         }
       });
     } else if (recommendations.length === 0 && recentTracks.length === 0) {
-        // Handle case for a brand new user with no tracks played yet - show one placeholder playlist
-        if (recommendations.length === 0) { // check to prevent re-setting
+        if (recommendations.length === 0) { 
             setRecommendations([{
                 playlistTitle: 'Popular Playlists',
                 tracks: placeholderImages.slice(0, 6).map(p => ({
@@ -121,13 +153,13 @@ export default function HomePage() {
                     artist: 'Various Artists',
                     duration: 0,
                     thumbnail: p.imageUrl,
-                    url: '', // No URL for placeholders
+                    url: '', 
                     viewCount: 0,
                 }))
             }]);
         }
     }
-  }, [recentTracks]); // Only depends on recentTracks now.
+  }, [recentTracks]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
@@ -145,10 +177,7 @@ export default function HomePage() {
 
   const handlePlayRecent = (item: { track: Track, isPlaceholder?: boolean }) => {
     if (item.isPlaceholder || !item.track || !recentTracks) return;
-    
-    // The playlist should be the full list of recent tracks, not just the visible ones
     const fullRecentPlaylist = recentTracks.map(t => t as Track);
-
     playTrack(item.track, fullRecentPlaylist, { type: 'recent' });
   };
   
@@ -159,7 +188,6 @@ export default function HomePage() {
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    // If a YouTube thumbnail fails to load, fall back to a placeholder.
     const target = e.target as HTMLImageElement;
     const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
     target.src = placeholderImages[placeholderIndex].imageUrl;
@@ -215,6 +243,7 @@ export default function HomePage() {
                         alt={track.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        sizes="(max-width: 768px) 50vw, 16.6vw"
                         data-ai-hint="album cover"
                         onError={handleImageError}
                       />
@@ -274,6 +303,7 @@ export default function HomePage() {
                     alt={item.description}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    sizes="(max-width: 768px) 50vw, 25vw"
                     data-ai-hint={item.imageHint}
                     onError={handleImageError}
                   />
