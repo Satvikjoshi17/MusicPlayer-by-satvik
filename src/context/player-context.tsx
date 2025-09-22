@@ -53,7 +53,7 @@ export const PlayerContext = createContext<PlayerContextType | undefined>(undefi
 export function PlayerProvider({ children, audioRef }: { children: ReactNode, audioRef: React.RefObject<HTMLAudioElement> }) {
   const currentBlobUrl = useRef<string | null>(null);
   const { toast } = useToast();
-  const playIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
@@ -101,10 +101,14 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     const audio = audioRef.current;
     if (!audio) return;
     
-    // Increment playId to invalidate any ongoing fetch operations.
-    playIdRef.current += 1;
-    const currentPlayId = playIdRef.current;
+    // Abort any ongoing fetch operations from a previous playTrack call
+    if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+    }
     
+    const newAbortController = new AbortController();
+    abortControllerRef.current = newAbortController;
+
     // Forcefully stop any current playback and clear the source.
     audio.pause();
     audio.src = '';
@@ -157,24 +161,32 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
                 finalStreamUrl = URL.createObjectURL(downloadedTrack.blob);
                 currentBlobUrl.current = finalStreamUrl; // Store the new blob URL
             } else {
-                const { streamUrl } = await getStreamUrl(track.url);
+                const { streamUrl } = await getStreamUrl(track.url, newAbortController.signal);
                 finalStreamUrl = streamUrl;
             }
             
-            if (playIdRef.current !== currentPlayId || !audioRef.current) {
-                // A new track was requested while this one was loading, so abort.
-                if (currentBlobUrl.current) {
+            if (newAbortController.signal.aborted || !audioRef.current) {
+                 if (currentBlobUrl.current) {
                     URL.revokeObjectURL(currentBlobUrl.current);
                     currentBlobUrl.current = null;
                 }
+                setIsLoading(false);
                 return;
             }
 
             audioRef.current.src = finalStreamUrl;
             await audioRef.current.play();
 
-        } catch (error) {
-            if (playIdRef.current === currentPlayId) {
+        } catch (error: any) {
+            // If the error is an AbortError, it's an intentional cancellation, so we just ignore it.
+            if (error.name === 'AbortError') {
+                console.log('Track loading aborted for new track.');
+                setIsLoading(false); // Ensure loading is stopped
+                return;
+            }
+
+            // For other errors, show a toast.
+            if (!newAbortController.signal.aborted) {
                 console.error('Failed to get stream URL', error);
                 toast({
                     variant: "destructive",
@@ -314,17 +326,29 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     setIsShuffled(newState);
 
     if (newState && currentTrack) {
-        const upcoming = playQueue.filter(t => t.id !== currentTrack.id);
-        const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-        shuffled.unshift(currentTrack);
-        setShuffledPlayQueue(shuffled);
-    } else if (currentTrack) {
+        // When turning shuffle ON
+        // Take the rest of the original play queue
         const trackIndex = playQueue.findIndex(t => t.id === currentTrack.id);
-        const newPlayQueue = trackIndex !== -1 ? playQueue.slice(trackIndex) : [currentTrack];
+        const upcomingInOrder = trackIndex !== -1 ? playQueue.slice(trackIndex + 1) : [];
+
+        // Shuffle them
+        const shuffledUpcoming = [...upcomingInOrder].sort(() => Math.random() - 0.5);
+
+        // Prepend the current track
+        const newShuffledQueue = [currentTrack, ...shuffledUpcoming];
+        setShuffledPlayQueue(newShuffledQueue);
+
+    } else if (currentTrack) {
+        // When turning shuffle OFF
+        // Find the current track in the original full queue
+        const trackIndex = queue.findIndex(t => t.id === currentTrack.id);
+
+        // Set the new play queue to be from the current track onwards in the original order
+        const newPlayQueue = trackIndex !== -1 ? queue.slice(trackIndex) : [currentTrack];
         setPlayQueue(newPlayQueue);
-        setShuffledPlayQueue([]);
+        setShuffledPlayQueue([]); // Clear the shuffled queue
     }
-  }, [isShuffled, playQueue, currentTrack]);
+  }, [isShuffled, playQueue, currentTrack, queue]);
 
   const toggleLoopMode = () => {
     setLoopMode(prev => {
@@ -459,6 +483,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       if (currentBlobUrl.current) {
         URL.revokeObjectURL(currentBlobUrl.current);
       }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, []);
   
@@ -484,7 +511,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     skipPrev,
     setVolume,
     toggleShuffle,
-toggleLoopMode,
+    toggleLoopMode,
     setIsSeeking,
   };
 

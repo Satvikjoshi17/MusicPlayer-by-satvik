@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { searchTracks } from '@/lib/api';
 import type { Track } from '@/lib/types';
@@ -17,35 +17,43 @@ export function SearchClientPage() {
   const [results, setResults] = useState<Track[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const { playTrack } = usePlayer();
 
   useEffect(() => {
-    let ignore = false;
-    
+    // Abort any ongoing search if a new one starts
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     if (query.length < 1) {
       setResults([]);
       setError(null);
       return;
     }
 
+    const newAbortController = new AbortController();
+    abortControllerRef.current = newAbortController;
+
     startTransition(async () => {
       setError(null);
       try {
-        const searchResults = await searchTracks(query);
-        if (!ignore) {
+        const searchResults = await searchTracks(query, newAbortController.signal);
+        // If the signal was aborted, the search was cancelled, so don't update state.
+        if (!newAbortController.signal.aborted) {
           setResults(searchResults);
         }
       } catch (e: any) {
-        console.error(e);
-        if (!ignore) {
-          setError(e.message || 'Failed to fetch search results. The server might be down.');
+        if (e.name !== 'AbortError' && !newAbortController.signal.aborted) {
+           console.error(e);
+           setError(e.message || 'Failed to fetch search results. The server might be down.');
         }
       }
     });
 
     return () => {
-      ignore = true;
+      newAbortController.abort();
     };
   }, [query]);
 
@@ -89,3 +97,5 @@ export function SearchClientPage() {
     </div>
   );
 }
+
+    
