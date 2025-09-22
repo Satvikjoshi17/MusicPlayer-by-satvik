@@ -221,11 +221,6 @@ export default function HomePage() {
                 <CardContent className="p-3 flex-1 flex flex-col">
                    <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
                    <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                   {track.reason && (
-                      <p className="text-xs text-muted-foreground/80 italic mt-2">
-                          &ldquo;{track.reason}&rdquo;
-                      </p>
-                   )}
                 </CardContent>
               </Card>
             ))
