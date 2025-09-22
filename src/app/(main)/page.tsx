@@ -33,7 +33,7 @@ export default function HomePage() {
   useEffect(() => {
     // Only fetch new recommendations if the number of recent tracks has changed significantly.
     // This prevents the recommendations from changing on every single song play.
-    if (recentTracks && recentTracks.length > recentTracksHistorySize.current) {
+    if (recentTracks && (recentTracks.length > recentTracksHistorySize.current || (recentTracks.length === 0 && recommended.length === 0))) {
       recentTracksHistorySize.current = recentTracks.length;
       startRecommendationTransition(async () => {
         try {
@@ -74,19 +74,6 @@ export default function HomePage() {
           setRecommended(fallbackTracks);
         }
       });
-    } else if (recentTracks && recentTracks.length === 0 && recommended.length === 0) {
-        startRecommendationTransition(() => {
-            const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
-                id: p.id,
-                title: p.description,
-                artist: 'Various Artists',
-                duration: 0,
-                thumbnail: p.imageUrl,
-                url: '',
-                viewCount: 0,
-              }));
-              setRecommended(fallbackTracks);
-        });
     }
   }, [recentTracks, recommended.length]);
 
