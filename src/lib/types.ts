@@ -7,6 +7,7 @@ export type Track = {
   artist: string;
   url: string;
   viewCount: number;
+  reason?: string; // For AI recommendations
 };
 
 export type SearchResponse = {

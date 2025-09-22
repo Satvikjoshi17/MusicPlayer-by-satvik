@@ -15,7 +15,6 @@ import { recommendMusic } from '@/ai/flows/recommend-music-flow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MoreVertical, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getStreamUrl } from '@/lib/api';
 import { TrackActions } from '@/components/music/track-actions';
 
 export default function HomePage() {
@@ -46,6 +45,7 @@ export default function HomePage() {
             thumbnail: `https://i.ytimg.com/vi/${new URL(rec.url).searchParams.get('v')}/hqdefault.jpg`,
             url: rec.url,
             viewCount: 0,
+            reason: rec.reason,
           }));
 
           setRecommended(fullTracks);
@@ -64,15 +64,17 @@ export default function HomePage() {
         }
       } else {
         // Fallback for new users
-        setRecommended(placeholderImages.slice(0, 4).map(p => ({
-            id: p.id,
-            title: p.description,
-            artist: 'Various Artists',
-            duration: 0,
-            thumbnail: p.imageUrl,
-            url: '', // This makes it unplayable
-            viewCount: 0,
-          })));
+        startRecommendationTransition(() => {
+          setRecommended(placeholderImages.slice(0, 4).map(p => ({
+              id: p.id,
+              title: p.description,
+              artist: 'Various Artists',
+              duration: 0,
+              thumbnail: p.imageUrl,
+              url: '', // This makes it unplayable
+              viewCount: 0,
+            })));
+        });
       }
     });
   }, [recentTracks]);
@@ -111,7 +113,7 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8 md:p-8 space-y-12">
       <header className="text-center md:text-left">
         <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-primary">
-          Welcome to satvikx
+          Welcome to Satvik Beats
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
           Stream and enjoy your favorite music.
@@ -126,42 +128,47 @@ export default function HomePage() {
                 <Card key={i} className="bg-secondary border-0">
                     <CardContent className="p-0">
                         <Skeleton className="aspect-square w-full" />
+                        <div className="p-3">
+                            <Skeleton className="h-5 w-3/4 mb-2" />
+                            <Skeleton className="h-4 w-1/2" />
+                        </div>
                     </CardContent>
                 </Card>
             ))
           ) : (
             recommended.map((track) => (
-              <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track)}>
-                <CardContent className="p-0">
-                  <div className="aspect-square relative">
-                    <Image
-                      src={track.thumbnail || placeholderImages[0].imageUrl}
-                      alt={track.title}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      data-ai-hint="album cover"
-                    />
-                    {track.url && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Play className="w-12 h-12 text-white fill-white" />
-                        </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
-                    <div className="p-3 absolute bottom-0 left-0 w-full pointer-events-none">
-                     <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
-                     <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                    </div>
-
-                    {track.url && (
-                       <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                          <TrackActions track={track} context={{ type: 'search' }} >
-                              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
-                                  <MoreVertical className="w-4 h-4"/>
-                              </Button>
-                          </TrackActions>
-                       </div>
-                    )}
-                  </div>
+              <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group h-full flex flex-col", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track)}>
+                <div className="aspect-square relative">
+                  <Image
+                    src={track.thumbnail || placeholderImages[0].imageUrl}
+                    alt={track.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    data-ai-hint="album cover"
+                  />
+                  {track.url && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-12 h-12 text-white fill-white" />
+                      </div>
+                  )}
+                  {track.url && (
+                     <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <TrackActions track={track} context={{ type: 'search' }} >
+                            <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
+                                <MoreVertical className="w-4 h-4"/>
+                            </Button>
+                        </TrackActions>
+                     </div>
+                  )}
+                </div>
+                <CardContent className="p-3 flex-1 flex flex-col">
+                   <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
+                   <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                   {track.reason && (
+                      <p className="text-xs text-muted-foreground/80 italic mt-2 truncate">
+                          &ldquo;{track.reason}&rdquo;
+                      </p>
+                   )}
                 </CardContent>
               </Card>
             ))
