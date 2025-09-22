@@ -80,7 +80,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       console.error("Failed to add to recents:", error);
     }
   };
-
+  
   const playTrack = useCallback((track: Track, newQueue: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
     const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
     
@@ -335,6 +335,11 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
   }, [audioRef, isPlaying]);
 
+  // Effect to update media session when play state changes
+  useEffect(() => {
+    updatePositionState();
+  }, [isPlaying, updatePositionState]);
+  
   // MediaSession API integration
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -491,3 +496,5 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
     </PlayerProvider>
   )
 }
+
+    
