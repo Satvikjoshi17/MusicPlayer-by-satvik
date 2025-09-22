@@ -9,6 +9,9 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { placeholderImages } from '@/lib/placeholder-images';
+import type { Track } from '@/lib/types';
+
 
 const RecommendedTrackSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
@@ -45,6 +48,8 @@ For each song, you must provide a valid YouTube URL and a short, friendly senten
 
 Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
 
+If the list of recent tracks is very short (1 or 2 songs), you should still try to make a good recommendation, but you can also include some popular tracks from different genres to give the user some variety.
+
 Recently Played:
 {{#each recentTracks}}
 - "{{this.title}}" by {{this.artist}}
@@ -60,7 +65,14 @@ const recommendMusicFlow = ai.defineFlow(
   },
   async input => {
     if (input.recentTracks.length === 0) {
-      return { recommendations: [] };
+      const fallbackRecs = placeholderImages.slice(0, 4).map(p => ({
+        artist: 'Various Artists',
+        title: p.description,
+        url: `https://www.youtube.com/watch?v=dQw4w9WgXcQ`, // Placeholder URL
+        duration: 212,
+        reason: `A popular playlist to get you started.`
+      }));
+      return { recommendations: fallbackRecs };
     }
     const {output} = await prompt(input);
     return output!;

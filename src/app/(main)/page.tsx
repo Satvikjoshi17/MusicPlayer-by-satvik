@@ -31,26 +31,34 @@ export default function HomePage() {
 
   useEffect(() => {
     startRecommendationTransition(async () => {
-      if (recentTracks && recentTracks.length > 0) {
+      if (recentTracks) {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           const { recommendations } = await recommendMusic({ recentTracks: recent });
           
-          const fullTracks: Track[] = recommendations.slice(0, 4).map(rec => ({
-            id: rec.url,
-            title: rec.title,
-            artist: rec.artist,
-            duration: rec.duration,
-            thumbnail: `https://i.ytimg.com/vi/${new URL(rec.url).searchParams.get('v')}/hqdefault.jpg`,
-            url: rec.url,
-            viewCount: 0,
-            reason: rec.reason,
-          }));
+          const fullTracks: Track[] = recommendations.slice(0, 4).map((rec, index) => {
+            let thumbnail = `https://i.ytimg.com/vi/${new URL(rec.url).searchParams.get('v')}/hqdefault.jpg`;
+            // If the AI returns a placeholder URL, use the picsum photo
+            if (rec.url.includes('dQw4w9WgXcQ')) {
+              thumbnail = placeholderImages[index].imageUrl;
+            }
+
+            return {
+              id: rec.url,
+              title: rec.title,
+              artist: rec.artist,
+              duration: rec.duration,
+              thumbnail: thumbnail,
+              url: rec.url.includes('dQw4w9WgXcQ') ? '' : rec.url,
+              viewCount: 0,
+              reason: rec.reason,
+            };
+          });
 
           setRecommended(fullTracks);
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          setRecommended(placeholderImages.slice(0, 4).map(p => ({
+           const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
             id: p.id,
             title: p.description,
             artist: 'Various Artists',
@@ -58,18 +66,9 @@ export default function HomePage() {
             thumbnail: p.imageUrl,
             url: '',
             viewCount: 0,
-          })));
+          }));
+          setRecommended(fallbackTracks);
         }
-      } else if (recentTracks) {
-        setRecommended(placeholderImages.slice(0, 4).map(p => ({
-            id: p.id,
-            title: p.description,
-            artist: 'Various Artists',
-            duration: 0,
-            thumbnail: p.imageUrl,
-            url: '',
-            viewCount: 0,
-        })));
       }
     });
   }, [recentTracks]);
@@ -101,7 +100,7 @@ export default function HomePage() {
   
   const handlePlayRecommendation = (track: Track) => {
     if (!track.url) return; // Don't play placeholder fallbacks
-    playTrack(track, recommended, { type: 'search', query: 'recommended' });
+    playTrack(track, recommended.filter(t => t.url), { type: 'search', query: 'recommended' });
   };
 
   return (
@@ -118,7 +117,7 @@ export default function HomePage() {
       <section>
         <h2 className="text-2xl font-bold font-headline mb-4">Recommended For You</h2>
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {isRecommendationPending ? (
+          {isRecommendationPending || recommended.length === 0 ? (
             Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i} className="bg-secondary border-0">
                     <CardContent className="p-0">
