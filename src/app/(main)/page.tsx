@@ -24,6 +24,27 @@ type RecommendationPlaylist = {
   tracks: Track[];
 };
 
+// Robust function to extract YouTube video ID from various URL formats
+function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  let videoId = null;
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'youtu.be') {
+      videoId = urlObj.pathname.slice(1);
+    } else if (urlObj.hostname.includes('youtube.com')) {
+      videoId = urlObj.searchParams.get('v');
+    }
+  } catch (e) {
+    // Regex fallback for non-URL strings or malformed URLs
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    if (match) videoId = match[1];
+  }
+  return videoId;
+}
+
+
 export default function HomePage() {
   const { playTrack } = usePlayer();
 
@@ -35,33 +56,33 @@ export default function HomePage() {
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(10).toArray(),
     []
   );
-
+  
   useEffect(() => {
     if (!recentTracks) return;
 
+    // Condition 1: Initial load with some history but no recommendations yet.
+    const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0 && !isRecommendationPending;
+    
+    // Condition 2: Played enough new tracks since the last recommendation.
     const hasPlayedEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
-    const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0;
 
-    if (hasPlayedEnoughNewTracks || shouldFetchInitial) {
+    if (shouldFetchInitial || hasPlayedEnoughNewTracks) {
       lastRecommendationTrackCount.current = recentTracks.length;
       
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
-          
-          if (recent.length === 0) return; // Should be covered by initial state, but as a safeguard
+          if (recent.length === 0) return;
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent });
           
           const fullTracks: Track[] = newTracks.slice(0, 6).map((rec) => {
             let thumbnail = placeholderImages[0].imageUrl;
-            try {
-              const videoId = new URL(rec.url).searchParams.get('v');
-              if (videoId) {
-                thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-              }
-            } catch (e) {
-              console.error("Invalid video URL from AI:", rec.url);
+            const videoId = getYouTubeVideoId(rec.url);
+            if (videoId) {
+              thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+            } else {
+               console.error("Could not extract Video ID from AI URL:", rec.url);
             }
 
             return {
@@ -79,15 +100,14 @@ export default function HomePage() {
           
           setRecommendations(prev => {
               const updatedPlaylists = [...prev, newPlaylist];
-              if (updatedPlaylists.length > MAX_PLAYLISTS) {
-                  return updatedPlaylists.slice(1); // Remove the oldest playlist
-              }
-              return updatedPlaylists;
+              // Keep only the last MAX_PLAYLISTS playlists
+              return updatedPlaylists.slice(-MAX_PLAYLISTS);
           });
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          // Don't add a failure playlist, just log the error. The UI will show existing ones.
+          // If the AI fails, we don't add a broken playlist.
+          // The UI will continue to show existing recommendations or the empty state.
         }
       });
     } else if (recommendations.length === 0 && recentTracks.length === 0) {
@@ -105,7 +125,7 @@ export default function HomePage() {
           }))
         }]);
     }
-  }, [recentTracks, recommendations]);
+  }, [recentTracks]); // Only depends on recentTracks now.
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {

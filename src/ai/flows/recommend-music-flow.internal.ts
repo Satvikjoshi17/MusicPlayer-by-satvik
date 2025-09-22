@@ -9,7 +9,7 @@ import {z} from 'genkit';
 const RecommendedTrackSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
   title: z.string().describe('The title of the recommended song.'),
-  url: z.string().url().describe("A YouTube URL for the recommended song."),
+  url: z.string().url().describe("A valid YouTube URL for the recommended song."),
   duration: z.number().describe("The duration of the song in seconds."),
 });
 
@@ -23,12 +23,7 @@ export type RecommendMusicInput = z.infer<typeof RecommendMusicInputSchema>;
 
 const RecommendMusicOutputSchema = z.object({
   playlistTitle: z.string().describe("A creative and short title for the recommended playlist based on the user's history (e.g., 'Indie Chill', 'Sunset Grooves')."),
-  recommendations: z.array(z.object({
-    artist: z.string().describe('The artist of the recommended song.'),
-    title: z.string().describe('The title of the recommended song.'),
-    url: z.string().url().describe("A YouTube URL for the recommended song."),
-    duration: z.number().describe("The duration of the song in seconds."),
-  })).describe('A list of 6 recommended songs for the playlist.'),
+  recommendations: z.array(RecommendedTrackSchema).describe('A list of 6 recommended songs for the playlist.'),
 });
 export type RecommendMusicOutput = z.infer<typeof RecommendMusicOutputSchema>;
 
@@ -42,7 +37,7 @@ You must provide:
 1. A creative, short title for the playlist (e.g., "Late Night Drive", "Acoustic Mornings", "Synthwave Dreams").
 2. A list of 6 new and different songs that the user might like, matching the playlist theme.
 
-For each song, you must provide a valid YouTube URL. Do not provide a reason.
+For each song, you must provide a valid YouTube URL. Do not provide a reason or any other text.
 
 Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
 
