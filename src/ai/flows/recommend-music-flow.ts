@@ -9,7 +9,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { placeholderImages } from '@/lib/placeholder-images';
 
 const RecommendedTrackSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
@@ -62,16 +61,8 @@ const recommendMusicFlow = ai.defineFlow(
     outputSchema: RecommendMusicOutputSchema,
   },
   async input => {
-    if (input.recentTracks.length === 0) {
-      const fallbackRecs = placeholderImages.slice(0, 4).map(p => ({
-        artist: 'Various Artists',
-        title: p.description,
-        url: `https://www.youtube.com/watch?v=dQw4w9WgXcQ`, // Placeholder URL
-        duration: 212,
-        reason: `A popular playlist to get you started.`
-      }));
-      return { recommendations: fallbackRecs };
-    }
+    // If there are no recent tracks, the AI will recommend popular songs based on the prompt.
+    // The prompt is designed to handle this case gracefully.
     const {output} = await prompt(input);
     return output!;
   }

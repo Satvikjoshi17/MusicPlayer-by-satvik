@@ -31,18 +31,31 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    // Only fetch new recommendations if the number of recent tracks has changed significantly.
-    // This prevents the recommendations from changing on every single song play.
     if (recentTracks && (recentTracks.length > recentTracksHistorySize.current || (recentTracks.length === 0 && recommended.length === 0))) {
       recentTracksHistorySize.current = recentTracks.length;
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
+          if (recent.length === 0) {
+            // Handle new user case directly on the client
+            const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+              id: p.id,
+              title: p.description,
+              artist: 'Various Artists',
+              duration: 0,
+              thumbnail: p.imageUrl,
+              url: '',
+              viewCount: 0,
+              reason: 'Popular playlists to get you started.'
+            }));
+            setRecommended(fallbackTracks);
+            return;
+          }
+
           const { recommendations } = await recommendMusic({ recentTracks: recent });
           
           const fullTracks: Track[] = recommendations.slice(0, 4).map((rec, index) => {
             let thumbnail = `https://i.ytimg.com/vi/${new URL(rec.url).searchParams.get('v')}/hqdefault.jpg`;
-            // If the AI returns a placeholder URL, use the picsum photo
             if (rec.url.includes('dQw4w9WgXcQ')) {
               thumbnail = placeholderImages[index].imageUrl;
             }
@@ -62,16 +75,18 @@ export default function HomePage() {
           setRecommended(fullTracks);
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-           const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
-            id: p.id,
-            title: p.description,
-            artist: 'Various Artists',
-            duration: 0,
-            thumbnail: p.imageUrl,
-            url: '',
-            viewCount: 0,
-          }));
-          setRecommended(fallbackTracks);
+          startRecommendationTransition(() => {
+            const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+                id: p.id,
+                title: p.description,
+                artist: 'Various Artists',
+                duration: 0,
+                thumbnail: p.imageUrl,
+                url: '',
+                viewCount: 0,
+            }));
+            setRecommended(fallbackTracks);
+          });
         }
       });
     }
