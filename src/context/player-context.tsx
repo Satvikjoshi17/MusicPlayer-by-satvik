@@ -98,13 +98,19 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   };
   
   const playTrack = useCallback((track: Track, newQueue: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     
+    // Increment playId to invalidate any ongoing fetch operations.
     playIdRef.current += 1;
     const currentPlayId = playIdRef.current;
-
+    
+    // Forcefully stop any current playback and clear the source.
+    audio.pause();
+    audio.src = '';
+    
     setIsLoading(true);
-    setCurrentTrack(track); // Set current track immediately for UI responsiveness
+    setCurrentTrack(track);
     
     const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
     
@@ -134,9 +140,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
 
     const playAudio = async () => {
-        if (!audioRef.current) return;
-        audioRef.current.pause();
-
         // Revoke the previous blob URL if it exists
         if (currentBlobUrl.current) {
             URL.revokeObjectURL(currentBlobUrl.current);
@@ -155,7 +158,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
                 finalStreamUrl = streamUrl;
             }
             
-            if (playIdRef.current !== currentPlayId) {
+            if (playIdRef.current !== currentPlayId || !audioRef.current) {
                 // A new track was requested while this one was loading, so abort.
                 if (currentBlobUrl.current) {
                     URL.revokeObjectURL(currentBlobUrl.current);

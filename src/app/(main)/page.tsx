@@ -7,7 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
 import type { Track } from '@/lib/types';
-import { useMemo, useEffect, useState, useTransition } from 'react';
+import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ export default function HomePage() {
 
   const [recommended, setRecommended] = useState<Track[]>([]);
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
+  const recentTracksHistorySize = useRef(0);
 
   const recentTracks = useLiveQuery(
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(8).toArray(),
@@ -30,8 +31,11 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    startRecommendationTransition(async () => {
-      if (recentTracks) {
+    // Only fetch new recommendations if the number of recent tracks has changed significantly.
+    // This prevents the recommendations from changing on every single song play.
+    if (recentTracks && recentTracks.length > recentTracksHistorySize.current) {
+      recentTracksHistorySize.current = recentTracks.length;
+      startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           const { recommendations } = await recommendMusic({ recentTracks: recent });
@@ -69,9 +73,22 @@ export default function HomePage() {
           }));
           setRecommended(fallbackTracks);
         }
-      }
-    });
-  }, [recentTracks]);
+      });
+    } else if (recentTracks && recentTracks.length === 0 && recommended.length === 0) {
+        startRecommendationTransition(() => {
+            const fallbackTracks = placeholderImages.slice(0, 4).map(p => ({
+                id: p.id,
+                title: p.description,
+                artist: 'Various Artists',
+                duration: 0,
+                thumbnail: p.imageUrl,
+                url: '',
+                viewCount: 0,
+              }));
+              setRecommended(fallbackTracks);
+        });
+    }
+  }, [recentTracks, recommended.length]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
