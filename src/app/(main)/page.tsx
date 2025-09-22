@@ -97,6 +97,7 @@ export default function HomePage() {
               thumbnail: p.imageUrl,
               url: '',
               viewCount: 0,
+              reason: 'Could not fetch AI recommendations.'
           }));
           setRecommended(fallbackTracks);
         }
@@ -203,7 +204,7 @@ export default function HomePage() {
                    <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
                    <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
                    {track.reason && (
-                      <p className="text-xs text-muted-foreground/80 italic mt-2 truncate">
+                      <p className="text-xs text-muted-foreground/80 italic mt-2">
                           &ldquo;{track.reason}&rdquo;
                       </p>
                    )}
@@ -235,7 +236,7 @@ export default function HomePage() {
                   />
                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
                    <div className="p-3 absolute bottom-0 left-0 w-full pointer-events-none">
-                    <h3 className="font-semibold text-sm truncate text-foreground">{item.description}</h3>
+                    <h3 className="font-semibold text-sm truncate text-white">{item.description}</h3>
                   </div>
 
                    {!item.isPlaceholder && item.track && (
