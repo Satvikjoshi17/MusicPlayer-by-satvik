@@ -55,9 +55,15 @@ export default function HomePage() {
           const { recommendations } = await recommendMusic({ recentTracks: recent });
           
           const fullTracks: Track[] = recommendations.slice(0, 4).map((rec, index) => {
-            let thumbnail = `https://i.ytimg.com/vi/${new URL(rec.url).searchParams.get('v')}/hqdefault.jpg`;
-            if (rec.url.includes('dQw4w9WgXcQ')) {
-              thumbnail = placeholderImages[index].imageUrl;
+            let thumbnail = placeholderImages[index].imageUrl; // Default to placeholder
+            try {
+              const videoId = new URL(rec.url).searchParams.get('v');
+              if (videoId) {
+                thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+              }
+            } catch (e) {
+              // If URL is invalid, placeholder is already set
+              console.error("Invalid video URL from AI:", rec.url);
             }
 
             return {
@@ -66,7 +72,7 @@ export default function HomePage() {
               artist: rec.artist,
               duration: rec.duration,
               thumbnail: thumbnail,
-              url: rec.url.includes('dQw4w9WgXcQ') ? '' : rec.url,
+              url: rec.url,
               viewCount: 0,
               reason: rec.reason,
             };
