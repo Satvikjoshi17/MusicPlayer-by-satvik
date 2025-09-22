@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { placeholderImages } from '@/lib/placeholder-images';
 
 const RecommendedTrackSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
@@ -62,7 +63,6 @@ const recommendMusicFlow = ai.defineFlow(
   },
   async input => {
     if (input.recentTracks.length === 0) {
-      const { placeholderImages } = await import('@/lib/placeholder-images');
       const fallbackRecs = placeholderImages.slice(0, 4).map(p => ({
         artist: 'Various Artists',
         title: p.description,

@@ -5,8 +5,7 @@ import { PlayerWrapper } from '@/context/player-context';
 
 export const metadata: Metadata = {
   title: 'satvikx',
-  description: 'A dark-theme, mobile-first PWA music player.',
-  manifest: '/manifest.json',
+  description: 'A dark-theme, mobile-first music player.',
 };
 
 export const viewport: Viewport = {
