@@ -6,7 +6,7 @@ import { usePlayer } from '@/hooks/use-player';
 import { SeekBar } from '@/components/music/seek-bar';
 import { PlayerControls } from '@/components/music/player-controls';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ListMusic, Volume2, Mic, ListPlus, Plus, Download, Trash2, CheckCircle, ListVideo } from 'lucide-react';
+import { ChevronDown, ListMusic, Volume2, Mic, MoreVertical } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { placeholderImages } from '@/lib/placeholder-images';
 import { Slider } from '../ui/slider';
@@ -14,33 +14,7 @@ import { useMemo, useState } from 'react';
 import type { PlayerContextSource } from '@/context/player-context';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { QueueList } from './queue-list';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-} from '../ui/dropdown-menu';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/lib/db';
-import { useToast } from '@/hooks/use-toast';
-import type { DbPlaylist, DbDownload } from '@/lib/types';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { Input } from '../ui/input';
-import { getDownloadUrl } from '@/lib/api';
-import axios from 'axios';
+import { TrackActions } from './track-actions';
 
 function getPlayerSource(source: PlayerContextSource) {
   switch (source.type) {
@@ -59,16 +33,10 @@ function getPlayerSource(source: PlayerContextSource) {
 
 export function PlayerFull() {
   const router = useRouter();
-  const { currentTrack, volume, setVolume, source, playQueue, playTrack, queue, addToQueue } = usePlayer();
-  const { toast } = useToast();
-  const playlists = useLiveQuery(() => db.playlists.toArray(), []);
-  const downloadedTrack = useLiveQuery(() => currentTrack ? db.downloads.get(currentTrack.id) : undefined, [currentTrack?.id]);
-  const isDownloaded = !!downloadedTrack;
+  const { currentTrack, volume, setVolume, source, playQueue, playTrack, queue } = usePlayer();
   
   const fallbackImage = placeholderImages[0];
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   const playerSource = useMemo(() => getPlayerSource(source), [source]);
 
@@ -78,104 +46,6 @@ export function PlayerFull() {
       playTrack(trackToPlay, queue, source);
     }
   }
-
-  const handleAddToPlaylist = async (playlist: DbPlaylist) => {
-    if (!currentTrack) return;
-    if (playlist.tracks.some(t => t.id === currentTrack.id)) {
-      toast({
-        title: 'Already in Playlist',
-        description: `"${currentTrack.title}" is already in "${playlist.name}".`,
-      });
-      return;
-    }
-
-    try {
-      const trackToAdd = { ...currentTrack, addedAt: new Date().toISOString() };
-      await db.playlists.update(playlist.id, {
-        tracks: [...playlist.tracks, trackToAdd],
-        updatedAt: new Date().toISOString(),
-      });
-      toast({
-        title: 'Added to Playlist',
-        description: `Added "${currentTrack.title}" to "${playlist.name}".`,
-      });
-    } catch (error) {
-      console.error('Failed to add to playlist', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to add track to playlist.',
-      });
-    }
-  };
-
-  const handleCreatePlaylist = async () => {
-    if (newPlaylistName.trim() === '' || !currentTrack) return;
-    try {
-      const newPlaylistId = crypto.randomUUID();
-      const trackToAdd = { ...currentTrack, addedAt: new Date().toISOString() };
-      await db.playlists.add({
-        id: newPlaylistId,
-        name: newPlaylistName,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tracks: [trackToAdd],
-      });
-      toast({
-        title: 'Playlist Created',
-        description: `Created "${newPlaylistName}" and added "${currentTrack.title}".`,
-      });
-      setNewPlaylistName('');
-      setShowCreateDialog(false);
-    } catch (error) {
-      console.error('Failed to create playlist', error);
-    }
-  };
-
-  const handleSaveForOffline = async () => {
-    if (!currentTrack) return;
-    if (isDownloaded) {
-        toast({ title: 'Already Saved', description: 'You have already saved this track for offline use.' });
-        return;
-    }
-
-    toast({ title: 'Saving for Offline', description: `Downloading "${currentTrack.title}"... This may take a moment.` });
-    try {
-        const downloadUrl = getDownloadUrl(currentTrack.url);
-        const response = await axios.get(downloadUrl, { responseType: 'blob' });
-        const blob = response.data as Blob;
-
-        await db.downloads.add({
-            ...currentTrack,
-            blob: blob,
-            mimeType: blob.type,
-            size: blob.size,
-            downloadedAt: new Date().toISOString(),
-            originalUrl: currentTrack.url,
-        });
-        toast({ title: 'Saved for Offline', description: `"${currentTrack.title}" is now available for offline playback.` });
-    } catch (error) {
-        console.error("Offline save failed:", error);
-        toast({ variant: 'destructive', title: 'Offline Save Failed', description: 'Could not save the track for offline use due to a network or CORS issue.' });
-    }
-  };
-
-  const handleRemoveFromDownloads = async () => {
-    if (!currentTrack || !isDownloaded) return;
-    try {
-        await db.downloads.delete(currentTrack.id);
-        toast({ title: 'Removed from Downloads', description: `"${currentTrack.title}" has been removed.` });
-    } catch (error) {
-        console.error("Failed to remove download", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the download.' });
-    }
-  };
-
-  const handleAddToQueue = () => {
-    if (currentTrack) {
-        addToQueue(currentTrack);
-    }
-  };
 
   return (
     <>
@@ -262,63 +132,7 @@ export function PlayerFull() {
           <SeekBar />
           <PlayerControls />
           <div className="flex items-center justify-between gap-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" disabled={!currentTrack}>
-                      <ListPlus className="w-5 h-5 text-muted-foreground"/>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={handleAddToQueue}>
-                      <ListVideo className="mr-2 h-4 w-4" />
-                      <span>Add to queue</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <ListPlus className="mr-2 h-4 w-4" />
-                      <span>Add to playlist</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          <span>New playlist</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {playlists?.map((playlist) => (
-                          <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
-                            <span>{playlist.name}</span>
-                          </DropdownMenuItem>
-                        ))}
-                        {playlists?.length === 0 && (
-                          <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
-                        )}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled={!currentTrack}>
-                        <Download className="w-5 h-5 text-muted-foreground"/>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    {isDownloaded ? (
-                        <DropdownMenuItem onClick={handleRemoveFromDownloads}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Remove from offline</span>
-                        </DropdownMenuItem>
-                    ) : (
-                        <DropdownMenuItem onClick={handleSaveForOffline}>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            <span>Save for offline</span>
-                        </DropdownMenuItem>
-                    )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+               <div className="w-10 h-10" />
 
                <div className="flex items-center gap-2 flex-1 max-w-xs">
                   <Volume2 className="w-5 h-5 text-muted-foreground"/>
@@ -328,39 +142,21 @@ export function PlayerFull() {
                       max={100}
                   />
                </div>
-              <Button variant="ghost" size="icon" disabled>
-                  <Mic className="w-5 h-5 text-muted-foreground"/>
-              </Button>
+
+              {currentTrack ? (
+                <TrackActions track={currentTrack} context={{ type: 'search' }}>
+                    <Button variant="ghost" size="icon">
+                        <MoreVertical className="w-5 h-5 text-muted-foreground"/>
+                    </Button>
+                </TrackActions>
+              ) : (
+                <Button variant="ghost" size="icon" disabled>
+                    <MoreVertical className="w-5 h-5 text-muted-foreground"/>
+                </Button>
+              )}
           </div>
         </footer>
       </div>
-
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Playlist</DialogTitle>
-            <DialogDescription>
-              Give your new playlist a name.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="e.g. Morning Jams, Workout Mix"
-              value={newPlaylistName}
-              onChange={(e) => setNewPlaylistName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreatePlaylist()}
-            />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleCreatePlaylist} disabled={!newPlaylistName.trim()}>
-              Create and Add Song
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

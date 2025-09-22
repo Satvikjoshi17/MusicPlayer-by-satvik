@@ -55,6 +55,10 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
   const downloadedTrack = useLiveQuery(() => db.downloads.get(track.id), [track.id]);
   const isDownloaded = !!downloadedTrack;
 
+  const handleAddToQueue = () => {
+    addToQueue(track);
+  };
+
   const handleAddToPlaylist = async (playlist: DbPlaylist) => {
     if (playlist.tracks.some(t => t.id === track.id)) {
       toast({
@@ -104,6 +108,11 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
       setShowCreateDialog(false);
     } catch (error) {
       console.error('Failed to create playlist', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error creating playlist',
+        description: 'Could not create the new playlist.',
+      });
     }
   };
 
@@ -139,7 +148,6 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        // Sanitize title for filename
         const safeTitle = track.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
         a.download = `${safeTitle}.mp3`;
         document.body.appendChild(a);
@@ -182,7 +190,7 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
   };
 
   const handleRemoveFromDownloads = async () => {
-    if (!isDownloaded) return;
+    if (!isDownloaded && context.type !== 'downloads') return;
     try {
         await db.downloads.delete(track.id);
         toast({ title: 'Removed from Downloads', description: `"${track.title}" has been removed.` });
@@ -197,42 +205,48 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => addToQueue(track)}>
+            <DropdownMenuItem onClick={handleAddToQueue}>
                 <ListVideo className="mr-2 h-4 w-4" />
                 <span>Add to queue</span>
             </DropdownMenuItem>
+          
+            {context.type === 'downloads' ? (
+                <DropdownMenuItem onClick={handleRemoveFromDownloads}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Remove from downloads</span>
+                </DropdownMenuItem>
+             ) : (
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        <ListPlus className="mr-2 h-4 w-4" />
+                        <span>Add to playlist</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            <span>New playlist</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {playlists?.map((playlist) => (
+                            <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
+                            <span>{playlist.name}</span>
+                            </DropdownMenuItem>
+                        ))}
+                        {playlists?.length === 0 && (
+                            <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
+                        )}
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                </DropdownMenuSub>
+             )}
+
 
           {context.type === 'playlist' && (
             <DropdownMenuItem onClick={handleRemoveFromPlaylist}>
               <Trash2 className="mr-2 h-4 w-4" />
               <span>Remove from playlist</span>
             </DropdownMenuItem>
-          )}
-
-          {context.type !== 'playlist' && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <ListPlus className="mr-2 h-4 w-4" />
-                <span>Add to playlist</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={() => setShowCreateDialog(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    <span>New playlist</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {playlists?.map((playlist) => (
-                    <DropdownMenuItem key={playlist.id} onClick={() => handleAddToPlaylist(playlist)}>
-                      <span>{playlist.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                  {playlists?.length === 0 && (
-                    <DropdownMenuItem disabled>No playlists yet</DropdownMenuItem>
-                  )}
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
           )}
           
           <DropdownMenuSeparator />

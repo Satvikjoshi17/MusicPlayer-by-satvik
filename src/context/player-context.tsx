@@ -197,37 +197,34 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       return;
     }
     
-    // Add to original queue if not present
-    setQueue(prev => {
-        if (prev.find(t => t.id === track.id)) return prev;
-        const currentIdx = prev.findIndex(t => t.id === currentTrack.id);
-        const newQueue = [...prev];
-        newQueue.splice(currentIdx + 1, 0, track);
-        return newQueue;
-    });
-    
-    // Add to current play queue
-    setPlayQueue(prev => {
-        const newQueue = [...prev];
-        if (newQueue.findIndex(t => t.id === track.id) === -1) {
-            newQueue.splice(1, 0, track);
-        }
-        return newQueue;
+    setQueue(prevQueue => {
+      if (prevQueue.some(t => t.id === track.id)) {
+        return prevQueue; // Already in the full queue
+      }
+      // Add after current track in the full queue
+      const currentIdx = prevQueue.findIndex(t => t.id === currentTrack.id);
+      const newQueue = [...prevQueue];
+      newQueue.splice(currentIdx + 1, 0, track);
+      return newQueue;
     });
 
+    const activePlayQueue = isShuffled ? shuffledPlayQueue : playQueue;
+    const newPlayQueue = [...activePlayQueue];
+    if (!newPlayQueue.some(t => t.id === track.id)) {
+       // Add after current track in the play queue (up next)
+       const currentPlayIndex = newPlayQueue.findIndex(t => t.id === currentTrack.id);
+       newPlayQueue.splice(currentPlayIndex + 1, 0, track);
+    }
+    
     if (isShuffled) {
-        setShuffledPlayQueue(prev => {
-            const newQueue = [...prev];
-            if (newQueue.findIndex(t => t.id === track.id) === -1) {
-                newQueue.splice(1, 0, track);
-            }
-            return newQueue;
-        });
+      setShuffledPlayQueue(newPlayQueue);
+    } else {
+      setPlayQueue(newPlayQueue);
     }
 
     toast({
         title: 'Added to queue',
-        description: `"${track.title}" is up next.`,
+        description: `"${track.title}" will play next.`,
     });
   };
   
@@ -250,7 +247,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     if (currentIndex !== -1 && currentIndex < activeQueue.length - 1) {
       nextTrack = activeQueue[currentIndex + 1];
     } else if (loopMode === 'queue' && queue.length > 0) {
-      // Re-shuffle full queue if shuffle is on
       if (isShuffled) {
           const shuffledQueue = [...queue].sort(() => Math.random() - 0.5);
           nextTrack = shuffledQueue[0];
@@ -318,21 +314,17 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     setIsShuffled(newState);
 
     if (newState && currentTrack) {
-        // Create a new shuffled queue based on the original full queue
-        const upcoming = queue.filter(t => t.id !== currentTrack.id);
+        const upcoming = playQueue.filter(t => t.id !== currentTrack.id);
         const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
         shuffled.unshift(currentTrack);
         setShuffledPlayQueue(shuffled);
-        // Also update playQueue to be the shuffled version so next/prev is consistent
-        setPlayQueue(shuffled);
     } else if (currentTrack) {
-        // Return to original order
-        const trackIndex = queue.findIndex(t => t.id === currentTrack.id);
-        const newPlayQueue = trackIndex !== -1 ? queue.slice(trackIndex) : [currentTrack];
+        const trackIndex = playQueue.findIndex(t => t.id === currentTrack.id);
+        const newPlayQueue = trackIndex !== -1 ? playQueue.slice(trackIndex) : [currentTrack];
         setPlayQueue(newPlayQueue);
         setShuffledPlayQueue([]);
     }
-  }, [isShuffled, queue, currentTrack]);
+  }, [isShuffled, playQueue, currentTrack]);
 
   const toggleLoopMode = () => {
     setLoopMode(prev => {
