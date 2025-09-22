@@ -1,7 +1,7 @@
 import type { SearchResponse, StreamResponse, Track } from './types';
 
 const API_BASE_URL = 'https://musicplayerbackend-us5o.onrender.com';
-const FETCH_TIMEOUT = 15000; // 15 seconds
+const FETCH_TIMEOUT = 30000; // 30 seconds
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = FETCH_TIMEOUT) {
   // Use the signal from options if it's provided, otherwise create a new controller.
