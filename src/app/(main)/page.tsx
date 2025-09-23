@@ -71,6 +71,10 @@ export default function HomePage() {
     if (!hasInitialized.current) {
         hasInitialized.current = true;
         lastRecTrackIds.current = currentTrackIds;
+        // If we have recommendations already, sync the lastRecTrackIds to prevent immediate refetch
+        if (recommendations.length > 0) {
+            lastRecTrackIds.current = new Set([...lastRecTrackIds.current, ...recommendations.flatMap(p => p.tracks.map(t => t.id))]);
+        }
     }
     
     const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0;
@@ -87,6 +91,22 @@ export default function HomePage() {
           // Don't fetch if a new user has no history yet.
           if (recent.length === 0) return;
 
+          // Optimistically add a skeleton UI
+          const tempId = `skeleton-${Date.now()}`;
+          const skeletonPlaylist: RecommendationPlaylist = {
+            playlistTitle: 'Curating new music...',
+            tracks: Array.from({ length: 6 }).map((_, i) => ({
+              id: `${tempId}-${i}`,
+              title: 'Loading...',
+              artist: '...',
+              duration: 0,
+              thumbnail: '',
+              url: '',
+              viewCount: 0,
+            })),
+          };
+          setRecommendations(prev => [...prev.slice(-MAX_PLAYLISTS + 1), skeletonPlaylist]);
+
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
           // Only update if the AI returned valid tracks.
@@ -94,29 +114,41 @@ export default function HomePage() {
             const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
             
             setRecommendations(prev => {
-                const updatedPlaylists = [...prev, newPlaylist];
+                // Replace the skeleton playlist with the real one
+                const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
+                if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle)) {
+                  // This case handles if the skeleton wasn't there for some reason
+                  updatedPlaylists.push(newPlaylist);
+                }
                 return updatedPlaylists.slice(-MAX_PLAYLISTS);
             });
           } else {
             console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
+            // Remove the skeleton if no tracks are found
+            setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
           }
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-           if (recommendations.length === 0) {
-             setRecommendations([{
-                playlistTitle: 'Popular Playlists',
-                tracks: placeholderImages.slice(0, 6).map(p => ({
-                    id: p.id,
-                    title: p.description,
-                    artist: 'Various Artists',
-                    duration: 0,
-                    thumbnail: p.imageUrl,
-                    url: '',
-                    viewCount: 0,
-                }))
-            }]);
-          }
+           // Remove skeleton and show placeholder if it was the first fetch
+           setRecommendations(prev => {
+              const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
+              if (withoutSkeleton.length === 0) {
+                 return [{
+                      playlistTitle: 'Popular Playlists',
+                      tracks: placeholderImages.slice(0, 6).map(p => ({
+                          id: p.id,
+                          title: p.description,
+                          artist: 'Various Artists',
+                          duration: 0,
+                          thumbnail: p.imageUrl,
+                          url: '',
+                          viewCount: 0,
+                      }))
+                  }];
+              }
+              return withoutSkeleton;
+           });
         }
       });
     }
@@ -188,38 +220,31 @@ export default function HomePage() {
                 </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-              {playlist.tracks.map((track) => (
-                <TrackCard 
-                  key={track.id} 
-                  track={track} 
-                  playlist={playlist}
-                  onPlay={() => handlePlayRecommendation(track, playlist)} 
-                />
-              ))}
+              {playlist.tracks[0]?.id.startsWith('skeleton-') ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i} className="bg-secondary border-0">
+                        <CardContent className="p-0">
+                            <Skeleton className="aspect-square w-full" />
+                            <div className="p-3">
+                                <Skeleton className="h-5 w-3/4 mb-2" />
+                                <Skeleton className="h-4 w-1/2" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))
+              ) : (
+                playlist.tracks.map((track) => (
+                  <TrackCard 
+                    key={track.id} 
+                    track={track} 
+                    playlist={playlist}
+                    onPlay={() => handlePlayRecommendation(track, playlist)} 
+                  />
+                ))
+              )}
             </div>
           </div>
         ))}
-         {isRecommendationPending && (
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                  <Music className="w-8 h-8 text-primary" />
-                  <h2 className="text-2xl font-bold font-headline">Curating new music...</h2>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                      <Card key={i} className="bg-secondary border-0">
-                          <CardContent className="p-0">
-                              <Skeleton className="aspect-square w-full" />
-                              <div className="p-3">
-                                  <Skeleton className="h-5 w-3/4 mb-2" />
-                                  <Skeleton className="h-4 w-1/2" />
-                              </div>
-                          </CardContent>
-                      </Card>
-                  ))}
-              </div>
-            </div>
-          )}
       </section>
 
       <section>
@@ -249,7 +274,7 @@ export default function HomePage() {
                   </div>
 
                    {!item.isPlaceholder && item.track && (
-                       <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                       <div className="absolute top-1 right-1 z-10 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                           <TrackActions track={item.track} context={{ type: 'recent' }} >
                               <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
                                   <MoreVertical className="w-4 h-4"/>
