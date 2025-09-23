@@ -65,21 +65,32 @@ export const recommendMusicFlow = ai.defineFlow(
     outputSchema: RecommendMusicVerifiedOutputSchema,
   },
   async input => {
+    console.log('[recommendMusicFlow] Starting recommendation flow...');
+    
     // Step 1: Get creative ideas from the LLM.
+    console.log('[recommendMusicFlow] Getting playlist ideas from AI...');
     const {output: ideas} = await prompt(input);
     if (!ideas) {
+      console.error('[recommendMusicFlow] Failed to get recommendation ideas from AI. The AI response was empty.');
       throw new Error('Failed to get recommendation ideas from AI');
     }
+    console.log(`[recommendMusicFlow] AI generated playlist title: "${ideas.playlistTitle}"`);
+    console.log('[recommendMusicFlow] AI generated song ideas:', ideas.recommendations);
+
 
     // Step 2: Verify and enrich the ideas using the verification flow.
+    console.log('[recommendMusicFlow] Starting verification process for song ideas...');
     const verifiedOutput = await verifyRecommendationsFlow({recommendations: ideas.recommendations});
     
-    // The verification flow now returns an array of Tracks or nulls. Filter out the nulls.
     const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
+    console.log(`[recommendMusicFlow] Verification complete. Found ${validTracks.length} valid tracks.`);
 
-    return {
+    const result = {
       playlistTitle: ideas.playlistTitle,
       recommendations: validTracks,
     };
+
+    console.log('[recommendMusicFlow] Returning final playlist:', result);
+    return result;
   }
 );

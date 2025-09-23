@@ -22,16 +22,18 @@ const findTrackTool = ai.defineTool(
     outputSchema: z.custom<Track>(),
   },
   async ({ title, artist }) => {
+    console.log(`[findTrackTool] Searching for track: "${title}" by ${artist}`);
     try {
-      // Use a more specific query for better results.
       const results = await searchTracksApi(`${title} by ${artist}`);
-      // Find the best match. Often the first result is good enough.
       if (results && results.length > 0) {
+        console.log(`[findTrackTool] Found track: "${results[0].title}" (ID: ${results[0].id})`);
         return results[0]; 
       }
+      console.warn(`[findTrackTool] No tracks found for "${title}" by ${artist}.`);
       throw new Error('No tracks found.');
     } catch (e) {
-      console.error(`Failed to find track for ${title} by ${artist}`, e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      console.error(`[findTrackTool] Failed to find track for "${title}" by ${artist}. Error: ${errorMessage}`);
       throw new Error(`Could not find a playable track for ${title} by ${artist}.`);
     }
   }
@@ -58,20 +60,25 @@ export const verifyRecommendationsFlow = ai.defineFlow(
     outputSchema: VerifyRecommendationsOutputSchema,
   },
   async (input) => {
+    console.log('[verifyRecommendationsFlow] Starting verification for', input.recommendations.length, 'tracks.');
     
     const verifiedTracks: (Track | null)[] = [];
 
     // Process recommendations sequentially to avoid rate-limiting the backend API.
     for (const rec of input.recommendations) {
         try {
+            console.log(`[verifyRecommendationsFlow] Fetching URL for: "${rec.title}" by ${rec.artist}`);
             const track = await findTrackTool(rec);
             verifiedTracks.push(track);
+            console.log(`[verifyRecommendationsFlow] Fetched successfully for: "${rec.title}"`);
         } catch (error) {
-            console.warn(`Verification failed for "${rec.title}" by ${rec.artist}: ${error instanceof Error ? error.message : String(error)}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.warn(`[verifyRecommendationsFlow] Verification failed for "${rec.title}" by ${rec.artist}: ${errorMessage}`);
             verifiedTracks.push(null); // Push null if a track can't be verified.
         }
     }
-
+    
+    console.log('[verifyRecommendationsFlow] Finished verification process.');
     return {
       tracks: verifiedTracks,
     };
