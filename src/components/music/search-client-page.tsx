@@ -1,75 +1,90 @@
-'use client';
+"use client"
 
-import { useState, useEffect, useTransition, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { searchTracks } from '@/lib/api';
-import type { Track } from '@/lib/types';
-import { SearchBar } from '@/components/music/search-bar';
-import { TrackItem } from '@/components/music/track-item';
-import { TrackListSkeleton } from '@/components/music/track-list-skeleton';
-import { usePlayer } from '@/hooks/use-player';
-import { Music, ServerCrash } from 'lucide-react';
+import { useState, useEffect, useTransition, useRef } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { searchTracks } from "@/lib/api"
+import type { Track } from "@/lib/types"
+import { SearchBar } from "@/components/music/search-bar"
+import { TrackItem } from "@/components/music/track-item"
+import { TrackListSkeleton } from "@/components/music/track-list-skeleton"
+import { usePlayer } from "@/hooks/use-player"
+import { Music, ServerCrash } from "lucide-react"
 
 export function SearchClientPage() {
-  const searchParams = useSearchParams();
-  const query = searchParams.get('q') || '';
-  
-  const [results, setResults] = useState<Track[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const query = searchParams.get("q") || ""
 
-  const { playTrack } = usePlayer();
+  const [results, setResults] = useState<Track[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const { playTrack } = usePlayer()
+
+  // This effect now handles updating the URL when the query changes.
+  const handleQueryChange = (newQuery: string) => {
+    startTransition(() => {
+      const currentQuery = searchParams.get("q") || ""
+      if (newQuery !== currentQuery) {
+        const url = newQuery ? `/search?q=${encodeURIComponent(newQuery)}` : "/search"
+        router.replace(url)
+      }
+    })
+  }
 
   useEffect(() => {
-    // Abort any ongoing search if a new one starts
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      abortControllerRef.current.abort()
     }
 
     if (query.length < 1) {
-      setResults([]);
-      setError(null);
-      return;
+      setResults([])
+      setError(null)
+      return
     }
 
-    const newAbortController = new AbortController();
-    abortControllerRef.current = newAbortController;
+    const newAbortController = new AbortController()
+    abortControllerRef.current = newAbortController
 
     startTransition(async () => {
-      setError(null);
+      setError(null)
       try {
-        const searchResults = await searchTracks(query, newAbortController.signal);
-        // If the signal was aborted, the search was cancelled, so don't update state.
+        const searchResults = await searchTracks(
+          query,
+          newAbortController.signal
+        )
         if (!newAbortController.signal.aborted) {
-          setResults(searchResults);
+          setResults(searchResults)
         }
       } catch (e: any) {
-        if (e.name !== 'AbortError' && !newAbortController.signal.aborted) {
-           console.error(e);
-           setError(e.message || 'Failed to fetch search results. The server might be down.');
+        if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
+          console.error(e)
+          setError(
+            e.message || "Failed to fetch search results. The server might be down."
+          )
         }
       }
-    });
+    })
 
     return () => {
-      newAbortController.abort();
-    };
-  }, [query]);
+      newAbortController.abort()
+    }
+  }, [query])
 
   const handlePlay = (track: Track) => {
-    playTrack(track, results, { type: 'search', query });
-  };
+    playTrack(track, results, { type: "search", query })
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:p-8 space-y-8">
       <div className="max-w-2xl mx-auto">
-        <SearchBar initialQuery={query} />
+        <SearchBar initialQuery={query} onQueryChange={handleQueryChange} />
       </div>
 
       <div className="space-y-4">
-        {isPending && <TrackListSkeleton count={5} />}
-        
+        {isPending && query && <TrackListSkeleton count={5} />}
+
         {!isPending && error && (
           <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
             <ServerCrash className="w-16 h-16 text-destructive" />
@@ -81,7 +96,9 @@ export function SearchClientPage() {
         {!isPending && !error && query && results.length === 0 && (
           <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
             <Music className="w-16 h-16" />
-            <h3 className="text-xl font-semibold">No results found for "{query}"</h3>
+            <h3 className="text-xl font-semibold">
+              No results found for "{query}"
+            </h3>
             <p>Try a different search term.</p>
           </div>
         )}
@@ -89,11 +106,16 @@ export function SearchClientPage() {
         {!isPending && results.length > 0 && (
           <div className="divide-y divide-border rounded-lg border">
             {results.map((track) => (
-              <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'search' }} />
+              <TrackItem
+                key={track.id}
+                track={track}
+                onPlay={() => handlePlay(track)}
+                context={{ type: "search" }}
+              />
             ))}
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

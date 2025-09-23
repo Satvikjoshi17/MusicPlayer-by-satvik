@@ -1,46 +1,32 @@
-'use client';
+"use client"
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
-import { useDebounce } from '@/hooks/use-debounce';
+import { useState, useEffect } from "react"
+import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react"
+import { useDebounce } from "@/hooks/use-debounce"
 
 type SearchBarProps = {
-  initialQuery?: string;
-};
+  initialQuery?: string
+  onQueryChange: (query: string) => void
+}
 
-export function SearchBar({ initialQuery = '' }: SearchBarProps) {
-  const router = useRouter();
-  const [query, setQuery] = useState(initialQuery);
-  const debouncedQuery = useDebounce(query, 600);
-  const isInitialMount = useRef(true);
-
-  useEffect(() => {
-    // This effect should only run on updates, not on the initial mount.
-    // The initial render is handled by the server with the correct query.
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    if (debouncedQuery) {
-      // Update the URL with the new query
-      const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
-      router.replace(url); // Use replace to avoid polluting history
-    } else {
-      // If the query is cleared, go to the base search page
-      router.replace('/search');
-    }
-  }, [debouncedQuery, router]);
+export function SearchBar({
+  initialQuery = "",
+  onQueryChange,
+}: SearchBarProps) {
+  const [query, setQuery] = useState(initialQuery)
+  const debouncedQuery = useDebounce(query, 500)
 
   useEffect(() => {
-    // Sync the input field if the query in the URL changes (e.g., browser back/forward)
-    // and it's not the initial mount.
-    if (!isInitialMount.current) {
-        setQuery(initialQuery);
-    }
-  }, [initialQuery]);
+    // When the debounced query changes, call the parent handler.
+    onQueryChange(debouncedQuery)
+  }, [debouncedQuery, onQueryChange])
+
+  // Sync the local query state if the initialQuery from props changes
+  // This happens when the user navigates using browser back/forward buttons
+  useEffect(() => {
+    setQuery(initialQuery)
+  }, [initialQuery])
 
   return (
     <div className="relative w-full">
@@ -54,5 +40,5 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
         autoFocus
       />
     </div>
-  );
+  )
 }
