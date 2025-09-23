@@ -62,40 +62,38 @@ export default function HomePage() {
     }
   }, [recommendations]);
   
+  // Effect to fetch new recommendations based on listening history
   useEffect(() => {
     if (recentTracks === undefined) return; // Still loading from DB
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
-    
-    // Only fetch on initial load if we have no recommendations and some history to work with.
-    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
 
     if (!hasInitialized.current) {
         hasInitialized.current = true;
         lastRecTrackIds.current = currentTrackIds;
-        // Don't run the full logic on first render if we're not fetching initial recommendations.
-        // Let the state hydrate from localStorage first.
-        if (!shouldFetchInitial) {
-             return; 
-        }
+        // Don't run fetch logic on first render, let state hydrate first.
+        // The exception is a new user with no saved recommendations but some history.
     }
 
+    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0;
+    
     const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
-
+    
     if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isRecommendationPending) {
       lastRecTrackIds.current = currentTrackIds;
       
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
-          if (recent.length === 0 && recommendations.length > 0 && !shouldFetchInitial) return;
+          
+          // Guard against fetching when there's nothing to base recs on.
+          if (recent.length === 0 && recommendations.length > 0) return;
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
           if (newTracks.length === 0) {
             console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
-            // Don't show placeholder if we already have some recommendations to show.
             if (recommendations.length > 0) return;
           }
           
@@ -107,7 +105,6 @@ export default function HomePage() {
                 return updatedPlaylists.slice(-MAX_PLAYLISTS);
             });
           } else if (recommendations.length === 0) {
-             // Only set placeholder if there are absolutely no recommendations at all and the AI failed
              setRecommendations([{
                 playlistTitle: 'Popular Playlists',
                 tracks: placeholderImages.slice(0, 6).map(p => ({
@@ -124,7 +121,6 @@ export default function HomePage() {
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-           // Only set placeholder if there are absolutely no recommendations at all
            if (recommendations.length === 0) {
              setRecommendations([{
                 playlistTitle: 'Popular Playlists',
@@ -142,7 +138,7 @@ export default function HomePage() {
         }
       });
     }
-  }, [recentTracks, isRecommendationPending, recommendations]);
+  }, [recentTracks, isRecommendationPending]); // <-- Removed `recommendations` from dependency array
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
