@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
@@ -14,21 +14,32 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebounce(query, 600);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    if (debouncedQuery === '' && initialQuery !== '') {
-      // If the query is cleared, go home
-      router.push('/');
-    } else if (debouncedQuery) {
-      // Otherwise, update the URL with the new query
+    // This effect should only run on updates, not on the initial mount.
+    // The initial render is handled by the server with the correct query.
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (debouncedQuery) {
+      // Update the URL with the new query
       const url = `/search?q=${encodeURIComponent(debouncedQuery)}`;
       router.replace(url); // Use replace to avoid polluting history
+    } else {
+      // If the query is cleared, go to the base search page
+      router.replace('/search');
     }
-  }, [debouncedQuery, initialQuery, router]);
+  }, [debouncedQuery, router]);
 
   useEffect(() => {
     // Sync the input field if the query in the URL changes (e.g., browser back/forward)
-    setQuery(initialQuery);
+    // and it's not the initial mount.
+    if (!isInitialMount.current) {
+        setQuery(initialQuery);
+    }
   }, [initialQuery]);
 
   return (
