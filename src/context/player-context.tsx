@@ -237,9 +237,11 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
   const addToQueue = (track: Track) => {
     if (!currentTrack) {
-      playTrack(track, [track], { type: 'unknown' });
-      toast({ title: 'Playing next', description: `"${track.title}"` });
-      return;
+        const newQueue = [track];
+        setQueue(newQueue);
+        playTrack(track, newQueue, { type: 'unknown' });
+        toast({ title: 'Playing next', description: `"${track.title}"` });
+        return;
     }
   
     // Add to the main queue if not already there
@@ -498,3 +500,4 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
 }
 
     
+

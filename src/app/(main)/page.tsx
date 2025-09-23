@@ -274,7 +274,7 @@ export default function HomePage() {
                   </div>
 
                    {!item.isPlaceholder && item.track && (
-                       <div className="absolute top-1 right-1 z-10 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                       <div className="absolute top-1 right-1 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                           <TrackActions track={item.track} context={{ type: 'recent' }} >
                               <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
                                   <MoreVertical className="w-4 h-4"/>
