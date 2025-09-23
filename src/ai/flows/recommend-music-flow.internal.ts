@@ -4,7 +4,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import { verifyRecommendationsFlow } from './verify-recommendations-flow.internal';
 import type { Track } from '@/lib/types';
 
@@ -69,12 +69,12 @@ export const recommendMusicFlow = ai.defineFlow(
     // Step 1: Get creative ideas from the LLM.
     console.log('[recommendMusicFlow] Getting playlist ideas from AI...');
     const {output: ideas} = await prompt(input);
-    if (!ideas) {
-      console.error('[recommendMusicFlow] Failed to get recommendation ideas from AI. The AI response was empty.');
+    if (!ideas || !ideas.recommendations || ideas.recommendations.length === 0) {
+      console.error('[recommendMusicFlow] Failed to get recommendation ideas from AI. The AI response was empty or had no recommendations.');
       return { playlistTitle: 'AI Recommendations', recommendations: [] };
     }
     console.log(`[recommendMusicFlow] AI generated playlist title: "${ideas.playlistTitle}"`);
-    console.log('[recommendMusicFlow] AI generated song ideas:', ideas.recommendations);
+    console.log(`[recommendMusicFlow] AI generated ${ideas.recommendations.length} song ideas.`);
 
 
     // Step 2: Verify and enrich the ideas using the verification flow.
@@ -82,14 +82,14 @@ export const recommendMusicFlow = ai.defineFlow(
     const verifiedOutput = await verifyRecommendationsFlow({recommendations: ideas.recommendations});
     
     const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
-    console.log(`[recommendMusicFlow] Verification complete. Found ${validTracks.length} valid tracks.`);
+    console.log(`[recommendMusicFlow] Verification complete. Found ${validTracks.length} valid tracks out of ${ideas.recommendations.length} ideas.`);
 
     const result = {
       playlistTitle: ideas.playlistTitle,
       recommendations: validTracks,
     };
 
-    console.log('[recommendMusicFlow] Returning final playlist:', result);
+    console.log('[recommendMusicFlow] Returning final playlist to client.');
     return result;
   }
 );

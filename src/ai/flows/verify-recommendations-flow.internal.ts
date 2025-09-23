@@ -5,7 +5,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { searchTracks as searchTracksApi } from '@/lib/api';
 import type { Track } from '@/lib/types';
 
@@ -60,20 +60,21 @@ export const verifyRecommendationsFlow = ai.defineFlow(
     outputSchema: VerifyRecommendationsOutputSchema,
   },
   async (input) => {
-    console.log('[verifyRecommendationsFlow] Starting verification for', input.recommendations.length, 'tracks.');
+    const totalTracks = input.recommendations.length;
+    console.log(`[verifyRecommendationsFlow] Starting verification for ${totalTracks} tracks.`);
     
     const verifiedTracks: (Track | null)[] = [];
 
     // Process recommendations sequentially to avoid rate-limiting the backend API.
-    for (const rec of input.recommendations) {
+    for (const [index, rec] of input.recommendations.entries()) {
         try {
-            console.log(`[verifyRecommendationsFlow] Fetching URL for: "${rec.title}" by ${rec.artist}`);
+            console.log(`[verifyRecommendationsFlow] Verifying song ${index + 1} of ${totalTracks}: "${rec.title}" by ${rec.artist}`);
             const track = await findTrackTool(rec);
             verifiedTracks.push(track);
-            console.log(`[verifyRecommendationsFlow] Fetched successfully for: "${rec.title}"`);
+            console.log(`[verifyRecommendationsFlow] -> Successfully verified song ${index + 1}: "${rec.title}"`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.warn(`[verifyRecommendationsFlow] Verification failed for "${rec.title}" by ${rec.artist}: ${errorMessage}`);
+            console.warn(`[verifyRecommendationsFlow] -> Failed to verify song ${index + 1} ("${rec.title}" by ${rec.artist}): ${errorMessage}`);
             verifiedTracks.push(null); // Push null if a track can't be verified.
         }
     }
