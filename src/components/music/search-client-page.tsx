@@ -22,15 +22,9 @@ export function SearchClientPage() {
 
   const { playTrack } = usePlayer()
 
-  // This effect now handles updating the URL when the query changes.
   const handleQueryChange = (newQuery: string) => {
-    startTransition(() => {
-      const currentQuery = searchParams.get("q") || ""
-      if (newQuery !== currentQuery) {
-        const url = newQuery ? `/search?q=${encodeURIComponent(newQuery)}` : "/search"
-        router.replace(url)
-      }
-    })
+    const url = newQuery ? `/search?q=${encodeURIComponent(newQuery)}` : "/search"
+    router.replace(url)
   }
 
   useEffect(() => {
@@ -47,25 +41,33 @@ export function SearchClientPage() {
     const newAbortController = new AbortController()
     abortControllerRef.current = newAbortController
 
-    startTransition(async () => {
-      setError(null)
+    const fetchResults = async () => {
+      startTransition(() => {
+        setError(null)
+      })
       try {
         const searchResults = await searchTracks(
           query,
           newAbortController.signal
         )
         if (!newAbortController.signal.aborted) {
-          setResults(searchResults)
+          startTransition(() => {
+            setResults(searchResults)
+          })
         }
       } catch (e: any) {
         if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
           console.error(e)
-          setError(
-            e.message || "Failed to fetch search results. The server might be down."
-          )
+          startTransition(() => {
+            setError(
+              e.message || "Failed to fetch search results. The server might be down."
+            )
+          })
         }
       }
-    })
+    }
+
+    fetchResults()
 
     return () => {
       newAbortController.abort()
@@ -93,7 +95,7 @@ export function SearchClientPage() {
           </div>
         )}
 
-        {!isPending && !error && query && results.length === 0 && (
+        {!is-pending && !error && query && results.length === 0 && (
           <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
             <Music className="w-16 h-16" />
             <h3 className="text-xl font-semibold">
