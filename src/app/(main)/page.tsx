@@ -73,7 +73,8 @@ export default function HomePage() {
         lastRecTrackIds.current = currentTrackIds;
         // If we have recommendations already, sync the lastRecTrackIds to prevent immediate refetch
         if (recommendations.length > 0) {
-            lastRecTrackIds.current = new Set([...lastRecTrackIds.current, ...recommendations.flatMap(p => p.tracks.map(t => t.id))]);
+            const recommendedTrackIds = recommendations.flatMap(p => p.tracks.map(t => t.id));
+            lastRecTrackIds.current = new Set([...currentTrackIds, ...recommendedTrackIds]);
         }
     }
     
@@ -82,7 +83,7 @@ export default function HomePage() {
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
     
     if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isRecommendationPending) {
-      lastRecTrackIds.current = currentTrackIds;
+      const trackHistoryForRecs = new Set(recentTracks.map(t => t.id));
       
       startRecommendationTransition(async () => {
         try {
@@ -122,10 +123,16 @@ export default function HomePage() {
                 }
                 return updatedPlaylists.slice(-MAX_PLAYLISTS);
             });
+            // **BUG FIX**: Update the set of known tracks to include the new recommendations
+            const newRecommendedTrackIds = newTracks.map(t => t.id);
+            lastRecTrackIds.current = new Set([...trackHistoryForRecs, ...newRecommendedTrackIds]);
+
           } else {
             console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
             // Remove the skeleton if no tracks are found
             setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
+            // If we didn't get new tracks, just update the history to prevent refetch loops
+            lastRecTrackIds.current = trackHistoryForRecs;
           }
 
         } catch (error) {
@@ -149,6 +156,8 @@ export default function HomePage() {
               }
               return withoutSkeleton;
            });
+           // On error, still update the history to prevent refetch loops
+           lastRecTrackIds.current = trackHistoryForRecs;
         }
       });
     }
