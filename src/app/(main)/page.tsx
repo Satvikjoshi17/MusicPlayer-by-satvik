@@ -34,7 +34,6 @@ export default function HomePage() {
   
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecTrackIds = useRef<Set<string>>(new Set());
-  const hasInitialized = useRef(false);
 
   const recentTracks = useLiveQuery(
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(20).toArray(),
@@ -46,7 +45,11 @@ export default function HomePage() {
     try {
       const saved = window.localStorage.getItem(LOCALSTORAGE_KEY);
       if (saved) {
-        setRecommendations(JSON.parse(saved));
+        const parsedRecommendations = JSON.parse(saved);
+        setRecommendations(parsedRecommendations);
+        // Initialize lastRecTrackIds with tracks from saved recommendations
+        const recommendedTrackIds = new Set(parsedRecommendations.flatMap((p: RecommendationPlaylist) => p.tracks.map(t => t.id)));
+        lastRecTrackIds.current = recommendedTrackIds;
       }
     } catch (error) {
       console.error("Failed to parse recommendations from localStorage", error);
@@ -67,18 +70,9 @@ export default function HomePage() {
     if (recentTracks === undefined) return; // Still loading from DB
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
-
-    if (!hasInitialized.current) {
-        hasInitialized.current = true;
-        lastRecTrackIds.current = currentTrackIds;
-        // If we have recommendations already, sync the lastRecTrackIds to prevent immediate refetch
-        if (recommendations.length > 0) {
-            const recommendedTrackIds = recommendations.flatMap(p => p.tracks.map(t => t.id));
-            lastRecTrackIds.current = new Set([...currentTrackIds, ...recommendedTrackIds]);
-        }
-    }
+    const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0;
     
-    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0;
+    // Calculate new tracks played that are not in the last recommendation set
     const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
     
@@ -89,7 +83,6 @@ export default function HomePage() {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           
-          // Don't fetch if a new user has no history yet.
           if (recent.length === 0) return;
 
           // Optimistically add a skeleton UI
@@ -115,29 +108,24 @@ export default function HomePage() {
             const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
             
             setRecommendations(prev => {
-                // Replace the skeleton playlist with the real one
                 const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
                 if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle)) {
-                  // This case handles if the skeleton wasn't there for some reason
                   updatedPlaylists.push(newPlaylist);
                 }
                 return updatedPlaylists.slice(-MAX_PLAYLISTS);
             });
-            // **BUG FIX**: Update the set of known tracks to include the new recommendations
+            // Update the set of known tracks to include the user's history and the new recommendations
             const newRecommendedTrackIds = newTracks.map(t => t.id);
             lastRecTrackIds.current = new Set([...trackHistoryForRecs, ...newRecommendedTrackIds]);
 
           } else {
             console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
-            // Remove the skeleton if no tracks are found
             setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
-            // If we didn't get new tracks, just update the history to prevent refetch loops
             lastRecTrackIds.current = trackHistoryForRecs;
           }
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-           // Remove skeleton and show placeholder if it was the first fetch
            setRecommendations(prev => {
               const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
               if (withoutSkeleton.length === 0) {
@@ -156,7 +144,6 @@ export default function HomePage() {
               }
               return withoutSkeleton;
            });
-           // On error, still update the history to prevent refetch loops
            lastRecTrackIds.current = trackHistoryForRecs;
         }
       });
