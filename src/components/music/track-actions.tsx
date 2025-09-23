@@ -34,7 +34,7 @@ import { getDownloadUrl } from '@/lib/api';
 
 type TrackItemContext = 
   | { type: 'search' }
-  | { type: 'playlist'; playlistId: string; }
+  | { type: 'playlist'; playlist: DbPlaylist }
   | { type: 'downloads' }
   | { type: 'recent' };
 
@@ -119,11 +119,11 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
   const handleRemoveFromPlaylist = async () => {
     if (context.type !== 'playlist') return;
     try {
-        const playlist = await db.playlists.get(context.playlistId);
+        const playlist = await db.playlists.get(context.playlist.id);
         if (!playlist) return;
 
         const updatedTracks = playlist.tracks.filter(t => t.id !== track.id);
-        await db.playlists.update(context.playlistId, {
+        await db.playlists.update(context.playlist.id, {
             tracks: updatedTracks,
             updatedAt: new Date().toISOString(),
         });
@@ -299,3 +299,5 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
     </>
   );
 }
+
+    

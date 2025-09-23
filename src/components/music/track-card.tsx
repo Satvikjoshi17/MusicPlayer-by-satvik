@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Track } from '@/lib/types';
+import type { Track, DbPlaylist } from '@/lib/types';
 import { placeholderImages } from '@/lib/placeholder-images';
 import type { RecommendationPlaylist } from '@/app/(main)/page';
 import { TrackActions } from './track-actions';
@@ -27,6 +27,14 @@ export function TrackCard({ track, playlist, onPlay }: TrackCardProps) {
   const imageUrl = imageError
     ? placeholderImages.find(p => p.id === '1')?.imageUrl || 'https://picsum.photos/seed/1/400/400'
     : track.thumbnail;
+
+  const fullPlaylistObject: DbPlaylist = {
+    id: playlist.playlistTitle,
+    name: playlist.playlistTitle,
+    tracks: playlist.tracks,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 
   return (
     <Card 
@@ -50,7 +58,7 @@ export function TrackCard({ track, playlist, onPlay }: TrackCardProps) {
         )}
         {track.url && (
           <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-            <TrackActions track={track} context={{ type: 'playlist', playlistId: playlist.playlistTitle }}>
+            <TrackActions track={track} context={{ type: 'playlist', playlist: fullPlaylistObject }}>
               <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
                 <MoreVertical className="w-4 h-4"/>
               </Button>
@@ -65,3 +73,5 @@ export function TrackCard({ track, playlist, onPlay }: TrackCardProps) {
     </Card>
   );
 }
+
+    

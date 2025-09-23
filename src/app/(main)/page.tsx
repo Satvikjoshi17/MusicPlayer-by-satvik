@@ -75,10 +75,12 @@ export default function HomePage() {
 
   // Effect to save recommendations to localStorage whenever they change
   useEffect(() => {
-    try {
-      window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
-    } catch (error) {
-      console.error("Failed to save recommendations to localStorage", error);
+    if(typeof window !== 'undefined'){
+        try {
+            window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
+        } catch (error) {
+            console.error("Failed to save recommendations to localStorage", error);
+        }
     }
   }, [recommendations]);
   
@@ -94,7 +96,7 @@ export default function HomePage() {
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
-          if (recent.length === 0) return;
+          if (recent.length === 0 && recommendations.length > 0) return;
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent });
           
@@ -127,7 +129,6 @@ export default function HomePage() {
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          // If AI fails, do not add a broken playlist. Fallback to placeholders if needed.
           if (recommendations.length === 0) {
              setRecommendations([{
                 playlistTitle: 'Popular Playlists',
@@ -160,7 +161,7 @@ export default function HomePage() {
             }]);
         }
     }
-  }, [recentTracks, isRecommendationPending, recommendations.length]);
+  }, [recentTracks, isRecommendationPending, recommendations]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
@@ -185,18 +186,23 @@ export default function HomePage() {
   const handlePlayRecommendation = (track: Track, playlist: RecommendationPlaylist) => {
     if (!track.url) return;
     const playableTracks = playlist.tracks.filter(t => t.url);
-    playTrack(track, playableTracks, { type: 'playlist', playlist: { id: playlist.playlistTitle, name: playlist.playlistTitle, tracks: playableTracks, createdAt: '', updatedAt: '' } });
+    const fullPlaylistObject = {
+      id: playlist.playlistTitle,
+      name: playlist.playlistTitle,
+      tracks: playableTracks,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    playTrack(track, playableTracks, { type: 'playlist', playlist: fullPlaylistObject });
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
-    // Prevent infinite loop if placeholder also fails
     if (target.src.includes('picsum.photos')) {
         return;
     }
     const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
     target.src = placeholderImages[placeholderIndex].imageUrl;
-    console.error("Image failed to load, fallback to placeholder:", target.alt);
   };
 
   return (
@@ -311,3 +317,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

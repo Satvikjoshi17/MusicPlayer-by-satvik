@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { TrackItem } from '@/components/music/track-item';
 import { TrackListSkeleton } from '@/components/music/track-list-skeleton';
 import { usePlayer } from '@/hooks/use-player';
-import type { PlaylistTrack, Track } from '@/lib/types';
+import type { PlaylistTrack, Track, DbPlaylist } from '@/lib/types';
 import { Music, Trash2, ChevronLeft, Play, Shuffle } from 'lucide-react';
 import {
   AlertDialog,
@@ -126,7 +126,7 @@ export default function PlaylistDetailPage() {
           {playlist.tracks.length > 0 ? (
             <div className="divide-y divide-border rounded-lg border">
               {playlist.tracks.map((track) => (
-                <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'playlist', playlistId: id }} />
+                <TrackItem key={track.id} track={track} onPlay={() => handlePlay(track)} context={{ type: 'playlist', playlist: playlist as DbPlaylist }} />
               ))}
             </div>
           ) : (
@@ -154,3 +154,5 @@ export default function PlaylistDetailPage() {
     </div>
   );
 }
+
+    

@@ -38,10 +38,10 @@ You must provide:
 2.  A list of 6 new and different songs that the user might like.
 
 CRITICAL INSTRUCTIONS FOR SONG URLs:
-- For each song, you MUST provide a valid, publicly accessible YouTube URL.
-- DO NOT provide links to videos that are private, deleted, region-locked, or otherwise unavailable.
+- For each song, you MUST provide a valid, publicly accessible YouTube URL for a playable song.
 - Prioritize official music videos, topic channels (e.g., "Artist - Topic"), or official lyric videos.
-- Double-check that the URL works before including it.
+- DO NOT provide links to YouTube Shorts, livestreams, premieres, or videos that are private, deleted, region-locked, or otherwise unavailable.
+- Double-check that the URL works and is a song before including it.
 
 Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
 
@@ -75,3 +75,5 @@ export const recommendMusicFlow = ai.defineFlow(
     return output;
   }
 );
+
+    

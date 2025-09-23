@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Play, Pause } from 'lucide-react';
-import type { Track } from '@/lib/types';
+import type { Track, DbPlaylist } from '@/lib/types';
 import { usePlayer } from '@/hooks/use-player';
 import { cn } from '@/lib/utils';
 import { placeholderImages } from '@/lib/placeholder-images';
@@ -11,7 +11,7 @@ import { TrackActions } from './track-actions';
 
 type TrackItemContext = 
   | { type: 'search' }
-  | { type: 'playlist'; playlistId: string; }
+  | { type: 'playlist'; playlist: DbPlaylist }
   | { type: 'downloads' }
   | { type: 'recent' };
 
@@ -82,3 +82,5 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
     </div>
   );
 }
+
+    
