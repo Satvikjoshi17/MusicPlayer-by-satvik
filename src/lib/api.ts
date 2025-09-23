@@ -42,8 +42,8 @@ export async function searchTracks(query: string, signal?: AbortSignal): Promise
   const url = `${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`;
   
   try {
-    // Use the default 15 second timeout for search
-    const response = await fetchWithTimeout(url, { signal }, FETCH_TIMEOUT);
+    // Give this a longer timeout as it's used in a sequential verification flow.
+    const response = await fetchWithTimeout(url, { signal }, 30000); 
     if (!response.ok) {
       const errorBody = await response.text();
       console.error("Search API returned an error:", response.status, errorBody);
@@ -76,5 +76,3 @@ export async function getStreamUrl(youtubeUrl: string, signal?: AbortSignal): Pr
 export function getDownloadUrl(youtubeUrl: string, quality: 'best' | 'medium' | 'worst' = 'best'): string {
   return `${API_BASE_URL}/api/download?url=${encodeURIComponent(youtubeUrl)}&quality=${quality}`;
 }
-
-    
