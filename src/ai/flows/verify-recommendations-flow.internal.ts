@@ -49,19 +49,6 @@ const VerifyRecommendationsInputSchema = z.object({
 const VerifyRecommendationsOutputSchema = z.object({
   tracks: z.array(z.custom<Track | null>()),
 });
-
-// This prompt is a "router" that just uses the tool for every input item.
-const verificationPrompt = ai.definePrompt({
-    name: 'verifyRecommendationsPrompt',
-    tools: [findTrackTool],
-    prompt: `For each of the following songs, use the findTrack tool to get its full details.
-  
-  {{#each recommendations}}
-  - {{this.title}} by {{this.artist}}
-  {{/each}}
-  
-  Return the results from the tool. Do not add any other commentary.`,
-  });
   
 
 export const verifyRecommendationsFlow = ai.defineFlow(
