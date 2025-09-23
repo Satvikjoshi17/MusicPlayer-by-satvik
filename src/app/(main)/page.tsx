@@ -71,12 +71,9 @@ export default function HomePage() {
     if (!hasInitialized.current) {
         hasInitialized.current = true;
         lastRecTrackIds.current = currentTrackIds;
-        // Don't run fetch logic on first render, let state hydrate first.
-        // The exception is a new user with no saved recommendations but some history.
     }
-
-    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0;
     
+    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0;
     const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
     
@@ -87,16 +84,12 @@ export default function HomePage() {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           
-          // Guard against fetching when there's nothing to base recs on.
-          if (recent.length === 0 && recommendations.length > 0) return;
+          // Don't fetch if a new user has no history yet.
+          if (recent.length === 0) return;
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
-          if (newTracks.length === 0) {
-            console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
-            if (recommendations.length > 0) return;
-          }
-          
+          // Only update if the AI returned valid tracks.
           if (newTracks.length > 0) {
             const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
             
@@ -104,19 +97,8 @@ export default function HomePage() {
                 const updatedPlaylists = [...prev, newPlaylist];
                 return updatedPlaylists.slice(-MAX_PLAYLISTS);
             });
-          } else if (recommendations.length === 0) {
-             setRecommendations([{
-                playlistTitle: 'Popular Playlists',
-                tracks: placeholderImages.slice(0, 6).map(p => ({
-                    id: p.id,
-                    title: p.description,
-                    artist: 'Various Artists',
-                    duration: 0,
-                    thumbnail: p.imageUrl,
-                    url: '',
-                    viewCount: 0,
-                }))
-            }]);
+          } else {
+            console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
           }
 
         } catch (error) {
@@ -138,7 +120,7 @@ export default function HomePage() {
         }
       });
     }
-  }, [recentTracks, isRecommendationPending]); // <-- Removed `recommendations` from dependency array
+  }, [recentTracks, isRecommendationPending]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {

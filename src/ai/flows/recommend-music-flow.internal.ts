@@ -83,12 +83,11 @@ export const recommendMusicFlow = ai.defineFlow(
     
     const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
 
-    if (validTracks.length < 3) {
-      // Don't error out, just return what we have. It's better than nothing.
-      // But if we have nothing, it's a problem.
-      if (validTracks.length === 0) {
-        throw new Error('AI failed to generate any valid recommendations.');
-      }
+    // If we have no valid tracks at all, it's an issue. Otherwise, return what we have.
+    if (validTracks.length === 0) {
+        // This can happen if the AI suggests very obscure tracks.
+        // We'll return an empty list and let the client decide what to do.
+        console.warn("AI failed to generate any valid recommendations.");
     }
     
     return {
