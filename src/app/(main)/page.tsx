@@ -27,27 +27,6 @@ export type RecommendationPlaylist = {
   tracks: Track[];
 };
 
-// Robust function to extract YouTube video ID from various URL formats
-function getYouTubeVideoId(url: string): string | null {
-  if (!url) return null;
-  let videoId = null;
-  try {
-    const urlObj = new URL(url);
-    if (urlObj.hostname === 'youtu.be') {
-      videoId = urlObj.pathname.slice(1);
-    } else if (urlObj.hostname.includes('youtube.com')) {
-      videoId = urlObj.searchParams.get('v');
-    }
-  } catch (e) {
-    // Regex fallback for non-URL strings or malformed URLs
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regex);
-    if (match) videoId = match[1];
-  }
-  return videoId;
-}
-
-
 export default function HomePage() {
   const { playTrack } = usePlayer();
 
@@ -93,23 +72,6 @@ export default function HomePage() {
     if (!hasInitialized.current) {
         hasInitialized.current = true;
         lastRecTrackIds.current = currentTrackIds;
-        
-        // On initial load, if we have no recommendations and no recent tracks, show placeholders
-        if (recommendations.length === 0 && recentTracks.length === 0) {
-             setRecommendations([{
-                playlistTitle: 'Popular Playlists',
-                tracks: placeholderImages.slice(0, 6).map(p => ({
-                    id: p.id,
-                    title: p.description,
-                    artist: 'Various Artists',
-                    duration: 0,
-                    thumbnail: p.imageUrl,
-                    url: '', 
-                    viewCount: 0,
-                }))
-            }]);
-        }
-        // Do not return here, allow the logic to proceed to check for initial fetch
     }
 
     const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
@@ -127,27 +89,12 @@ export default function HomePage() {
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
-          const fullTracks: Track[] = newTracks.slice(0, 6).map((rec) => {
-            let thumbnail = placeholderImages[0].imageUrl;
-            const videoId = getYouTubeVideoId(rec.url);
-            if (videoId) {
-              thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-            } else {
-               console.error("Could not extract Video ID from AI URL:", rec.url);
-            }
-
-            return {
-              id: rec.url,
-              title: rec.title,
-              artist: rec.artist,
-              duration: rec.duration,
-              thumbnail: thumbnail,
-              url: rec.url,
-              viewCount: 0,
-            };
-          });
-
-          const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: fullTracks };
+          if (newTracks.length < 3) {
+            console.warn("Received fewer than 3 valid recommendations from the AI. Not updating playlist.");
+            return;
+          }
+          
+          const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
           
           setRecommendations(prev => {
               const updatedPlaylists = [...prev, newPlaylist];

@@ -5,12 +5,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { verifyRecommendationsFlow } from './verify-recommendations-flow.internal';
+import type { Track } from '@/lib/types';
 
-const RecommendedTrackSchema = z.object({
+
+const RecommendedTrackIdeaSchema = z.object({
   artist: z.string().describe('The artist of the recommended song.'),
   title: z.string().describe('The title of the recommended song.'),
-  url: z.string().url().describe("A valid YouTube URL for the recommended song."),
-  duration: z.number().describe("The duration of the song in seconds."),
 });
 
 const RecommendMusicInputSchema = z.object({
@@ -23,9 +24,23 @@ export type RecommendMusicInput = z.infer<typeof RecommendMusicInputSchema>;
 
 const RecommendMusicOutputSchema = z.object({
   playlistTitle: z.string().describe("A creative and short title for the recommended playlist based on the user's history (e.g., 'Indie Chill', 'Sunset Grooves')."),
-  recommendations: z.array(RecommendedTrackSchema).describe('A list of 6 recommended songs for the playlist.'),
+  recommendations: z.array(RecommendedTrackIdeaSchema).describe('A list of 6 recommended songs for the playlist.'),
 });
-export type RecommendMusicOutput = z.infer<typeof RecommendMusicOutputSchema>;
+
+
+const RecommendMusicVerifiedOutputSchema = z.object({
+  playlistTitle: z.string(),
+  recommendations: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    duration: z.number(),
+    thumbnail: z.string(),
+    artist: z.string(),
+    url: z.string(),
+    viewCount: z.number(),
+  })),
+});
+export type RecommendMusicOutput = z.infer<typeof RecommendMusicVerifiedOutputSchema>;
 
 const prompt = ai.definePrompt({
   name: 'recommendMusicPrompt',
@@ -35,19 +50,13 @@ const prompt = ai.definePrompt({
 
 You must provide:
 1.  A creative, short title for the playlist (e.g., "Late Night Drive", "Acoustic Mornings").
-2.  A list of 6 new and different songs that the user might like.
+2.  A list of 6 new and different songs that the user might like. Provide just the artist and title.
 
-CRITICAL INSTRUCTIONS FOR SONG URLs:
-- For each song, you MUST provide a valid, publicly accessible YouTube URL for a playable song.
-- Prioritize official music videos, topic channels (e.g., "Artist - Topic"), or official lyric videos.
-- DO NOT provide links to YouTube Shorts, livestreams, premieres, or videos that are private, deleted, region-locked, or otherwise unavailable.
-- Double-check that the URL works and is a song before including it.
-
-Provide a diverse list of recommendations based on the genres and artists of the recently played tracks. Do not recommend songs that are already in the recent tracks list.
-
-If the list of recent tracks is very short (1 or 2 songs), create a "Discovery Weekly" style playlist with popular tracks from related genres.
-
-Do not provide a reason or any other text in your response.
+CRITICAL INSTRUCTIONS:
+- Provide a diverse list of recommendations based on the genres and artists of the recently played tracks.
+- Do not recommend songs that are already in the recent tracks list.
+- If the list of recent tracks is very short (1 or 2 songs), create a "Discovery Weekly" style playlist with popular tracks from related genres.
+- Do not provide a reason, a URL, or any other text in your response. Just the artist and title.
 
 Recently Played:
 {{#each recentTracks}}
@@ -60,20 +69,27 @@ export const recommendMusicFlow = ai.defineFlow(
   {
     name: 'recommendMusicFlow',
     inputSchema: RecommendMusicInputSchema,
-    outputSchema: RecommendMusicOutputSchema,
+    outputSchema: RecommendMusicVerifiedOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error('Failed to get recommendations from AI');
+    // Step 1: Get creative ideas from the LLM.
+    const {output: ideas} = await prompt(input);
+    if (!ideas) {
+      throw new Error('Failed to get recommendation ideas from AI');
     }
 
-    if (output.recommendations.length < 3) {
+    // Step 2: Verify and enrich the ideas using the verification flow.
+    const verifiedOutput = await verifyRecommendationsFlow({recommendations: ideas.recommendations});
+    
+    const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
+
+    if (validTracks.length < 3) {
       throw new Error('AI failed to generate a sufficient number of valid recommendations.');
     }
     
-    return output;
+    return {
+      playlistTitle: ideas.playlistTitle,
+      recommendations: validTracks,
+    };
   }
 );
-
-    
