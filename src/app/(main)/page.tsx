@@ -10,12 +10,12 @@ import type { Track, DbPlaylist } from '@/lib/types';
 import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { recommendMusic } from '@/ai/flows/recommend-music-flow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MoreVertical, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
+import type { RecommendMusicOutput } from '@/ai/flows/recommend-music-flow';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
@@ -34,11 +34,55 @@ export default function HomePage() {
   
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecTrackIds = useRef<Set<string>>(new Set());
+  const workerRef = useRef<Worker>();
+
 
   const recentTracks = useLiveQuery(
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(20).toArray(),
     []
   );
+
+  // Initialize Web Worker
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('../../workers/recommendation.worker.ts', import.meta.url));
+
+    workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | {error: string}>) => {
+      startRecommendationTransition(() => {
+        const result = event.data;
+        if ('error' in result) {
+            console.error("Worker error:", result.error);
+             setRecommendations(prev => {
+                const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
+                return withoutSkeleton.length > 0 ? withoutSkeleton : getFallbackPlaylists();
+             });
+        } else {
+            const { playlistTitle, recommendations: newTracks } = result;
+            if (newTracks.length > 0) {
+              const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
+              
+              setRecommendations(prev => {
+                  const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
+                  if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle && p.tracks[0]?.id === newPlaylist.tracks[0]?.id)) {
+                    updatedPlaylists.push(newPlaylist);
+                  }
+                  return updatedPlaylists.slice(-MAX_PLAYLISTS);
+              });
+              const newRecommendedTrackIds = newTracks.map(t => t.id);
+              const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
+              lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
+
+            } else {
+              console.warn("Received 0 valid recommendations from the AI worker. Not updating playlist.");
+              setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
+            }
+        }
+      });
+    };
+
+    return () => {
+        workerRef.current?.terminate();
+    }
+  }, [recentTracks]);
 
   // Load from localStorage on client-side mount
   useEffect(() => {
@@ -59,7 +103,9 @@ export default function HomePage() {
   // Effect to save recommendations to localStorage whenever they change
   useEffect(() => {
     try {
-        window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
+        if (recommendations.length > 0 && !recommendations.some(p => p.tracks[0]?.id.startsWith('skeleton-'))) {
+            window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
+        }
     } catch (error) {
         console.error("Failed to save recommendations to localStorage", error);
     }
@@ -67,7 +113,7 @@ export default function HomePage() {
   
   // Effect to fetch new recommendations based on listening history
   useEffect(() => {
-    if (recentTracks === undefined) return; // Still loading from DB
+    if (recentTracks === undefined || !workerRef.current) return; // Still loading or worker not ready
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
     const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0;
@@ -77,78 +123,45 @@ export default function HomePage() {
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
     
     if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isRecommendationPending) {
-      const trackHistoryForRecs = new Set(recentTracks.map(t => t.id));
-      
-      startRecommendationTransition(async () => {
-        try {
-          const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
-          
-          if (recent.length === 0) return;
+        const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
+        if (recent.length === 0) return;
 
-          // Optimistically add a skeleton UI
-          const tempId = `skeleton-${Date.now()}`;
-          const skeletonPlaylist: RecommendationPlaylist = {
-            playlistTitle: 'Curating new music...',
-            tracks: Array.from({ length: 6 }).map((_, i) => ({
-              id: `${tempId}-${i}`,
-              title: 'Loading...',
-              artist: '...',
-              duration: 0,
-              thumbnail: '',
-              url: '',
-              viewCount: 0,
-            })),
-          };
-          setRecommendations(prev => [...prev.slice(-MAX_PLAYLISTS + 1), skeletonPlaylist]);
-
-          const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
-          
-          // Only update if the AI returned valid tracks.
-          if (newTracks.length > 0) {
-            const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
-            
-            setRecommendations(prev => {
-                const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
-                if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle)) {
-                  updatedPlaylists.push(newPlaylist);
-                }
-                return updatedPlaylists.slice(-MAX_PLAYLISTS);
-            });
-            // Update the set of known tracks to include the user's history and the new recommendations
-            const newRecommendedTrackIds = newTracks.map(t => t.id);
-            lastRecTrackIds.current = new Set([...trackHistoryForRecs, ...newRecommendedTrackIds]);
-
-          } else {
-            console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
-            setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
-            lastRecTrackIds.current = trackHistoryForRecs;
-          }
-
-        } catch (error) {
-          console.error("Failed to get recommendations:", error);
-           setRecommendations(prev => {
-              const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
-              if (withoutSkeleton.length === 0) {
-                 return [{
-                      playlistTitle: 'Popular Playlists',
-                      tracks: placeholderImages.slice(0, 6).map(p => ({
-                          id: p.id,
-                          title: p.description,
-                          artist: 'Various Artists',
-                          duration: 0,
-                          thumbnail: p.imageUrl,
-                          url: '',
-                          viewCount: 0,
-                      }))
-                  }];
-              }
-              return withoutSkeleton;
-           });
-           lastRecTrackIds.current = trackHistoryForRecs;
-        }
-      });
+        startRecommendationTransition(() => {
+            const tempId = `skeleton-${Date.now()}`;
+            const skeletonPlaylist: RecommendationPlaylist = {
+                playlistTitle: 'Curating new music...',
+                tracks: Array.from({ length: 6 }).map((_, i) => ({
+                id: `${tempId}-${i}`,
+                title: 'Loading...',
+                artist: '...',
+                duration: 0,
+                thumbnail: '',
+                url: '',
+                viewCount: 0,
+                })),
+            };
+            setRecommendations(prev => [...prev.slice(-MAX_PLAYLISTS + 1), skeletonPlaylist]);
+        });
+        
+        workerRef.current.postMessage({ recentTracks: recent.slice(0, 10) });
+        lastRecTrackIds.current = currentTrackIds; // Update immediately to prevent re-triggering
     }
-  }, [recentTracks, isRecommendationPending, recommendations.length]);
+  }, [recentTracks, recommendations.length, isRecommendationPending]);
+
+  const getFallbackPlaylists = (): RecommendationPlaylist[] => {
+    return [{
+        playlistTitle: 'Popular Playlists',
+        tracks: placeholderImages.slice(0, 6).map(p => ({
+            id: p.id,
+            title: p.description,
+            artist: 'Various Artists',
+            duration: 0,
+            thumbnail: p.imageUrl,
+            url: '',
+            viewCount: 0,
+        }))
+    }];
+  };
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {

@@ -13,6 +13,20 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // For web workers
+    if (!isServer) {
+        config.module.rules.push({
+            test: /\.worker\.ts$/,
+            loader: 'worker-loader',
+            options: {
+                filename: 'static/chunks/[name].[contenthash].js',
+                publicPath: '/_next/',
+            },
+        });
+    }
+    return config
+  }
 };
 
 export default nextConfig;
