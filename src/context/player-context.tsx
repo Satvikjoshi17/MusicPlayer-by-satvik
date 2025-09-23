@@ -238,6 +238,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   const addToQueue = (track: Track) => {
     if (!currentTrack) {
         const newQueue = [track];
+        // When starting a new queue, we must set the main queue state as well.
         setQueue(newQueue);
         playTrack(track, newQueue, { type: 'unknown' });
         toast({ title: 'Playing next', description: `"${track.title}"` });
@@ -498,6 +499,3 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
     </PlayerProvider>
   )
 }
-
-    
-

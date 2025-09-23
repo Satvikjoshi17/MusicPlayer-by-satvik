@@ -67,7 +67,10 @@ export default function HomePage() {
                   }
                   return updatedPlaylists.slice(-MAX_PLAYLISTS);
               });
-              const newRecommendedTrackIds = newTracks.map(t => t.id);
+
+              // After successfully getting a new recommendation, update the set of track IDs
+              // that we should consider "seen" for the purpose of fetching the next recommendation.
+              const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
               const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
               lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
 
@@ -124,7 +127,8 @@ export default function HomePage() {
     
     if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isRecommendationPending) {
         const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
-        if (recent.length === 0) return;
+        // Don't trigger for empty history unless there are also no recommendations (first load)
+        if (recent.length === 0 && recommendations.length > 0) return;
 
         startRecommendationTransition(() => {
             const tempId = `skeleton-${Date.now()}`;
@@ -144,7 +148,8 @@ export default function HomePage() {
         });
         
         workerRef.current.postMessage({ recentTracks: recent.slice(0, 10) });
-        lastRecTrackIds.current = currentTrackIds; // Update immediately to prevent re-triggering
+        // Update immediately to prevent re-triggering for the same set of songs
+        lastRecTrackIds.current = currentTrackIds;
     }
   }, [recentTracks, recommendations.length, isRecommendationPending]);
 
