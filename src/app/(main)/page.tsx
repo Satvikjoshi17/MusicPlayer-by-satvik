@@ -109,7 +109,7 @@ export default function HomePage() {
                 }))
             }]);
         }
-        return;
+        // Do not return here, allow the logic to proceed to check for initial fetch
     }
 
     const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
@@ -123,7 +123,7 @@ export default function HomePage() {
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
-          if (recent.length === 0 && recommendations.length > 0) return;
+          if (recent.length === 0 && recommendations.length > 0 && !shouldFetchInitial) return;
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
