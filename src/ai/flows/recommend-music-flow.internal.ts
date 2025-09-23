@@ -45,11 +45,10 @@ You must provide:
 2.  A list of 6 new and different songs that the user might like. Provide just the artist and title.
 
 CRITICAL INSTRUCTIONS:
-- Provide a diverse list of recommendations based on the genres and artists of the recently played tracks.
+- Provide a diverse list of recommendations with a mix of genres and artists, including some new and different from the user's history.
 - Do not recommend songs that are already in the recent tracks list.
 - If the list of recent tracks is very short (1 or 2 songs), create a "Discovery Weekly" style playlist with popular tracks from related genres.
 - Do not provide a reason, a URL, or any other text in your response. Just the artist and title.
-- Only recommend real, existing songs by the specified artists.
 
 Recently Played:
 {{#each recentTracks}}
@@ -72,7 +71,7 @@ export const recommendMusicFlow = ai.defineFlow(
     const {output: ideas} = await prompt(input);
     if (!ideas) {
       console.error('[recommendMusicFlow] Failed to get recommendation ideas from AI. The AI response was empty.');
-      throw new Error('Failed to get recommendation ideas from AI');
+      return { playlistTitle: 'AI Recommendations', recommendations: [] };
     }
     console.log(`[recommendMusicFlow] AI generated playlist title: "${ideas.playlistTitle}"`);
     console.log('[recommendMusicFlow] AI generated song ideas:', ideas.recommendations);
