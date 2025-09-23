@@ -24,7 +24,7 @@ export function SearchClientPage() {
 
   const handleQueryChange = (newQuery: string) => {
     const url = newQuery ? `/search?q=${encodeURIComponent(newQuery)}` : "/search"
-    router.replace(url)
+    router.replace(url, { scroll: false })
   }
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export function SearchClientPage() {
           </div>
         )}
 
-        {!is-pending && !error && query && results.length === 0 && (
+        {!isPending && !error && query && results.length === 0 && (
           <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
             <Music className="w-16 h-16" />
             <h3 className="text-xl font-semibold">
