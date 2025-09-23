@@ -12,16 +12,17 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { recommendMusic } from '@/ai/flows/recommend-music-flow';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MoreVertical, Play, Music } from 'lucide-react';
+import { MoreVertical, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
+import { TrackCard } from '@/components/music/track-card';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 4;
 const MAX_PLAYLISTS = 3;
 const LOCALSTORAGE_KEY = 'musicRecommendations';
 
 
-type RecommendationPlaylist = {
+export type RecommendationPlaylist = {
   playlistTitle: string;
   tracks: Track[];
 };
@@ -159,7 +160,7 @@ export default function HomePage() {
             }]);
         }
     }
-  }, [recentTracks]);
+  }, [recentTracks, isRecommendationPending, recommendations.length]);
 
   const recentlyPlayedItems = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
@@ -190,7 +191,7 @@ export default function HomePage() {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
     // Prevent infinite loop if placeholder also fails
-    if (target.src.startsWith('https://picsum.photos')) {
+    if (target.src.includes('picsum.photos')) {
         return;
     }
     const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
@@ -241,37 +242,12 @@ export default function HomePage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
                 {playlist.tracks.map((track) => (
-                  <Card key={track.id} className={cn("bg-secondary border-0 overflow-hidden group h-full flex flex-col", track.url && 'cursor-pointer')} onClick={() => handlePlayRecommendation(track, playlist)}>
-                    <div className="aspect-square relative">
-                      <Image
-                        src={track.thumbnail || placeholderImages[0].imageUrl}
-                        alt={track.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        sizes="(max-width: 768px) 50vw, 16.6vw"
-                        data-ai-hint="album cover"
-                        onError={handleImageError}
-                      />
-                      {track.url && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Play className="w-12 h-12 text-white fill-white" />
-                          </div>
-                      )}
-                      {track.url && (
-                         <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                            <TrackActions track={track} context={{ type: 'playlist', playlistId: playlist.playlistTitle }}>
-                                <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-white bg-black/30 hover:bg-black/50 hover:text-white">
-                                    <MoreVertical className="w-4 h-4"/>
-                                </Button>
-                            </TrackActions>
-                         </div>
-                      )}
-                    </div>
-                    <CardContent className="p-3 flex-1 flex flex-col">
-                       <h3 className="font-semibold text-sm truncate text-foreground">{track.title}</h3>
-                       <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                    </CardContent>
-                  </Card>
+                  <TrackCard 
+                    key={track.id} 
+                    track={track} 
+                    playlist={playlist}
+                    onPlay={() => handlePlayRecommendation(track, playlist)} 
+                  />
                 ))}
               </div>
             </div>
