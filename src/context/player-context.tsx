@@ -108,7 +108,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
     setCurrentTrack(track);
     addTrackToRecents(track);
-  }, [queue, source, isShuffled]);
+  }, [isShuffled, queue, source]);
 
   const skipNext = useCallback(() => {
     const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
