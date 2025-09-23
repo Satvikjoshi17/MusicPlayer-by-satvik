@@ -17,15 +17,17 @@ export function SearchBar({
   const [query, setQuery] = useState(initialQuery)
   const debouncedQuery = useDebounce(query, 500)
 
+  // Effect to inform the parent component about the debounced query change
   useEffect(() => {
-    // When the debounced query changes, call the parent handler.
     onQueryChange(debouncedQuery)
   }, [debouncedQuery, onQueryChange])
 
-  // Sync the local query state if the initialQuery from props changes
-  // This happens when the user navigates using browser back/forward buttons
+  // Effect to sync local state if the initialQuery from props changes
+  // This happens on initial load and when navigating via browser history
   useEffect(() => {
-    setQuery(initialQuery)
+    if (initialQuery !== query) {
+        setQuery(initialQuery)
+    }
   }, [initialQuery])
 
   return (
