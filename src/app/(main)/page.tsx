@@ -6,7 +6,7 @@ import { placeholderImages } from '@/lib/placeholder-images';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
-import type { Track } from '@/lib/types';
+import type { Track, DbPlaylist } from '@/lib/types';
 import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 
-const RECOMMENDATION_REFRESH_THRESHOLD = 4;
+const RECOMMENDATION_REFRESH_THRESHOLD = 5; // Changed to 5 as requested
 const MAX_PLAYLISTS = 3;
 const LOCALSTORAGE_KEY = 'musicRecommendations';
 
@@ -66,10 +66,10 @@ export default function HomePage() {
   });
   
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
-  const lastRecommendationTrackCount = useRef(0);
+  const lastRecTrackIds = useRef<Set<string>>(new Set());
 
   const recentTracks = useLiveQuery(
-    () => db.recent.orderBy('lastPlayedAt').reverse().limit(10).toArray(),
+    () => db.recent.orderBy('lastPlayedAt').reverse().limit(20).toArray(),
     []
   );
 
@@ -87,18 +87,21 @@ export default function HomePage() {
   useEffect(() => {
     if (recentTracks === undefined) return; // Still loading from DB
 
-    const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0 && !isRecommendationPending;
-    const hasPlayedEnoughNewTracks = recentTracks.length >= lastRecommendationTrackCount.current + RECOMMENDATION_REFRESH_THRESHOLD;
+    const currentTrackIds = new Set(recentTracks.map(t => t.id));
+    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
+
+    const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
+    const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
 
     if (shouldFetchInitial || hasPlayedEnoughNewTracks) {
-      lastRecommendationTrackCount.current = recentTracks.length;
+      lastRecTrackIds.current = currentTrackIds;
       
       startRecommendationTransition(async () => {
         try {
           const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
           if (recent.length === 0 && recommendations.length > 0) return;
 
-          const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent });
+          const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
           const fullTracks: Track[] = newTracks.slice(0, 6).map((rec) => {
             let thumbnail = placeholderImages[0].imageUrl;
@@ -186,7 +189,7 @@ export default function HomePage() {
   const handlePlayRecommendation = (track: Track, playlist: RecommendationPlaylist) => {
     if (!track.url) return;
     const playableTracks = playlist.tracks.filter(t => t.url);
-    const fullPlaylistObject = {
+    const fullPlaylistObject: DbPlaylist = {
       id: playlist.playlistTitle,
       name: playlist.playlistTitle,
       tracks: playableTracks,
@@ -202,7 +205,10 @@ export default function HomePage() {
         return;
     }
     const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
-    target.src = placeholderImages[placeholderIndex].imageUrl;
+    const newSrc = placeholderImages[placeholderIndex].imageUrl;
+    if(target.src !== newSrc) {
+        target.src = newSrc;
+    }
   };
 
   return (
@@ -317,5 +323,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
