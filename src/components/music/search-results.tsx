@@ -36,28 +36,34 @@ export function SearchResults({ query }: SearchResultsProps) {
     abortControllerRef.current = newAbortController
 
     const fetchResults = async () => {
-      startTransition(async () => {
         try {
           const searchResults = await searchTracks(
             query,
             newAbortController.signal
-          )
+          );
           if (!newAbortController.signal.aborted) {
-            setError(null);
-            setResults(searchResults);
+            startTransition(() => {
+                setError(null);
+                setResults(searchResults);
+            });
           }
         } catch (e: any) {
           if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
             console.error(e)
-            setError(
-              e.message || "Failed to fetch search results. The server might be down."
-            )
-            setResults([]);
+            startTransition(() => {
+                setError(
+                    e.message || "Failed to fetch search results. The server might be down."
+                )
+                setResults([]);
+            });
           }
         }
-      });
     }
 
+    startTransition(() => {
+        // This transition is intentionally left to only set isPending to true
+        // while the async fetchResults runs. The results are set in their own transition.
+    });
     fetchResults()
 
     return () => {
@@ -92,8 +98,10 @@ export function SearchResults({ query }: SearchResultsProps) {
             <p>Try a different search term.</p>
           </div>
         )}
+        
+        {isPending && results.length > 0 && <TrackListSkeleton count={results.length}/>}
 
-        {results.length > 0 && (
+        {!isPending && results.length > 0 && (
           <div className="divide-y divide-border rounded-lg border">
             {results.map((track) => (
               <TrackItem
