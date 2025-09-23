@@ -30,15 +30,7 @@ const RecommendMusicOutputSchema = z.object({
 
 const RecommendMusicVerifiedOutputSchema = z.object({
   playlistTitle: z.string(),
-  recommendations: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    duration: z.number(),
-    thumbnail: z.string(),
-    artist: z.string(),
-    url: z.string(),
-    viewCount: z.number(),
-  })),
+  recommendations: z.array(z.custom<Track>()),
 });
 export type RecommendMusicOutput = z.infer<typeof RecommendMusicVerifiedOutputSchema>;
 
@@ -57,6 +49,7 @@ CRITICAL INSTRUCTIONS:
 - Do not recommend songs that are already in the recent tracks list.
 - If the list of recent tracks is very short (1 or 2 songs), create a "Discovery Weekly" style playlist with popular tracks from related genres.
 - Do not provide a reason, a URL, or any other text in your response. Just the artist and title.
+- Only recommend real, existing songs by the specified artists.
 
 Recently Played:
 {{#each recentTracks}}
@@ -81,15 +74,9 @@ export const recommendMusicFlow = ai.defineFlow(
     // Step 2: Verify and enrich the ideas using the verification flow.
     const verifiedOutput = await verifyRecommendationsFlow({recommendations: ideas.recommendations});
     
+    // The verification flow now returns an array of Tracks or nulls. Filter out the nulls.
     const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
 
-    // If we have no valid tracks at all, it's an issue. Otherwise, return what we have.
-    if (validTracks.length === 0) {
-        // This can happen if the AI suggests very obscure tracks.
-        // We'll return an empty list and let the client decide what to do.
-        console.warn("AI failed to generate any valid recommendations.");
-    }
-    
     return {
       playlistTitle: ideas.playlistTitle,
       recommendations: validTracks,

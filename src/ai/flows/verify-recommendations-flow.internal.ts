@@ -23,9 +23,9 @@ const findTrackTool = ai.defineTool(
   },
   async ({ title, artist }) => {
     try {
-      const results = await searchTracksApi(`${title} ${artist}`);
+      // Use a more specific query for better results.
+      const results = await searchTracksApi(`${title} by ${artist}`);
       // Find the best match. Often the first result is good enough.
-      // A more complex matching logic could be added here if needed.
       if (results && results.length > 0) {
         return results[0]; 
       }
@@ -47,7 +47,7 @@ const VerifyRecommendationsInputSchema = z.object({
 
 // Define the schema for the output of this flow. It can include nulls for tracks that couldn't be verified.
 const VerifyRecommendationsOutputSchema = z.object({
-  tracks: z.array(z.custom<Track | null>()),
+  tracks: z.array(z.custom<Track | null>()).describe("An array of verified tracks. If a track cannot be verified, it will be null."),
 });
   
 
@@ -59,17 +59,18 @@ export const verifyRecommendationsFlow = ai.defineFlow(
   },
   async (input) => {
     
-    // Instead of using a prompt, we can directly call the tool in parallel for better performance.
-    const verificationPromises = input.recommendations.map(rec => 
-      findTrackTool(rec)
-        .then(track => track)
-        .catch(error => {
-          console.warn(`Verification failed for "${rec.title}": ${error.message}`);
-          return null; // Return null if a track can't be verified.
-        })
-    );
+    const verifiedTracks: (Track | null)[] = [];
 
-    const verifiedTracks = await Promise.all(verificationPromises);
+    // Process recommendations sequentially to avoid rate-limiting the backend API.
+    for (const rec of input.recommendations) {
+        try {
+            const track = await findTrackTool(rec);
+            verifiedTracks.push(track);
+        } catch (error) {
+            console.warn(`Verification failed for "${rec.title}" by ${rec.artist}: ${error instanceof Error ? error.message : String(error)}`);
+            verifiedTracks.push(null); // Push null if a track can't be verified.
+        }
+    }
 
     return {
       tracks: verifiedTracks,
