@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 
-const RECOMMENDATION_REFRESH_THRESHOLD = 5; // Changed to 5 as requested
+const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
 const LOCALSTORAGE_KEY = 'musicRecommendations';
 
@@ -67,6 +67,7 @@ export default function HomePage() {
   
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecTrackIds = useRef<Set<string>>(new Set());
+  const hasInitialized = useRef(false);
 
   const recentTracks = useLiveQuery(
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(20).toArray(),
@@ -88,12 +89,35 @@ export default function HomePage() {
     if (recentTracks === undefined) return; // Still loading from DB
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
+    
+    if (!hasInitialized.current) {
+        hasInitialized.current = true;
+        lastRecTrackIds.current = currentTrackIds;
+        
+        // On initial load, if we have no recommendations and no recent tracks, show placeholders
+        if (recommendations.length === 0 && recentTracks.length === 0) {
+             setRecommendations([{
+                playlistTitle: 'Popular Playlists',
+                tracks: placeholderImages.slice(0, 6).map(p => ({
+                    id: p.id,
+                    title: p.description,
+                    artist: 'Various Artists',
+                    duration: 0,
+                    thumbnail: p.imageUrl,
+                    url: '', 
+                    viewCount: 0,
+                }))
+            }]);
+        }
+        return;
+    }
+
     const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
 
     const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
 
-    if (shouldFetchInitial || hasPlayedEnoughNewTracks) {
+    if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isRecommendationPending) {
       lastRecTrackIds.current = currentTrackIds;
       
       startRecommendationTransition(async () => {
@@ -132,7 +156,8 @@ export default function HomePage() {
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
-          if (recommendations.length === 0) {
+           // Only set placeholder if there are absolutely no recommendations at all
+           if (recommendations.length === 0) {
              setRecommendations([{
                 playlistTitle: 'Popular Playlists',
                 tracks: placeholderImages.slice(0, 6).map(p => ({
@@ -148,21 +173,6 @@ export default function HomePage() {
           }
         }
       });
-    } else if (recommendations.length === 0 && recentTracks.length === 0) {
-        if (recommendations.length === 0) { 
-            setRecommendations([{
-                playlistTitle: 'Popular Playlists',
-                tracks: placeholderImages.slice(0, 6).map(p => ({
-                    id: p.id,
-                    title: p.description,
-                    artist: 'Various Artists',
-                    duration: 0,
-                    thumbnail: p.imageUrl,
-                    url: '', 
-                    viewCount: 0,
-                }))
-            }]);
-        }
     }
   }, [recentTracks, isRecommendationPending, recommendations]);
 
