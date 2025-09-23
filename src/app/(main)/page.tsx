@@ -30,19 +30,7 @@ export type RecommendationPlaylist = {
 export default function HomePage() {
   const { playTrack } = usePlayer();
 
-  const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>(() => {
-    // Load recommendations from localStorage on initial client-side render
-    if (typeof window === 'undefined') {
-      return [];
-    }
-    try {
-      const saved = window.localStorage.getItem(LOCALSTORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error("Failed to parse recommendations from localStorage", error);
-      return [];
-    }
-  });
+  const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>([]);
   
   const [isRecommendationPending, startRecommendationTransition] = useTransition();
   const lastRecTrackIds = useRef<Set<string>>(new Set());
@@ -53,14 +41,24 @@ export default function HomePage() {
     []
   );
 
+  // Load from localStorage on client-side mount
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(LOCALSTORAGE_KEY);
+      if (saved) {
+        setRecommendations(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error("Failed to parse recommendations from localStorage", error);
+    }
+  }, []);
+
   // Effect to save recommendations to localStorage whenever they change
   useEffect(() => {
-    if(typeof window !== 'undefined'){
-        try {
-            window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
-        } catch (error) {
-            console.error("Failed to save recommendations to localStorage", error);
-        }
+    try {
+        window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
+    } catch (error) {
+        console.error("Failed to save recommendations to localStorage", error);
     }
   }, [recommendations]);
   
@@ -69,15 +67,16 @@ export default function HomePage() {
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
     
+    // Only fetch on initial load if we have no recommendations and some history to work with.
     const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
 
     if (!hasInitialized.current) {
         hasInitialized.current = true;
         lastRecTrackIds.current = currentTrackIds;
-        if (shouldFetchInitial) { // This condition handles the new user case
-            // The logic will continue below, no early return
-        } else {
-            return; // Don't fetch on initial load if we already have recommendations
+        // Don't run the full logic on first render if we're not fetching initial recommendations.
+        // Let the state hydrate from localStorage first.
+        if (!shouldFetchInitial) {
+             return; 
         }
     }
 
