@@ -84,7 +84,11 @@ export const recommendMusicFlow = ai.defineFlow(
     const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
 
     if (validTracks.length < 3) {
-      throw new Error('AI failed to generate a sufficient number of valid recommendations.');
+      // Don't error out, just return what we have. It's better than nothing.
+      // But if we have nothing, it's a problem.
+      if (validTracks.length === 0) {
+        throw new Error('AI failed to generate any valid recommendations.');
+      }
     }
     
     return {

@@ -69,12 +69,17 @@ export default function HomePage() {
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
     
+    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
+
     if (!hasInitialized.current) {
         hasInitialized.current = true;
         lastRecTrackIds.current = currentTrackIds;
+        if (shouldFetchInitial) { // This condition handles the new user case
+            // The logic will continue below, no early return
+        } else {
+            return; // Don't fetch on initial load if we already have recommendations
+        }
     }
-
-    const shouldFetchInitial = recommendations.length === 0 && currentTrackIds.size > 0 && !isRecommendationPending;
 
     const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
@@ -89,17 +94,34 @@ export default function HomePage() {
 
           const { playlistTitle, recommendations: newTracks } = await recommendMusic({ recentTracks: recent.slice(0, 10) });
           
-          if (newTracks.length < 3) {
-            console.warn("Received fewer than 3 valid recommendations from the AI. Not updating playlist.");
-            return;
+          if (newTracks.length === 0) {
+            console.warn("Received 0 valid recommendations from the AI. Not updating playlist.");
+            // Don't show placeholder if we already have some recommendations to show.
+            if (recommendations.length > 0) return;
           }
           
-          const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
-          
-          setRecommendations(prev => {
-              const updatedPlaylists = [...prev, newPlaylist];
-              return updatedPlaylists.slice(-MAX_PLAYLISTS);
-          });
+          if (newTracks.length > 0) {
+            const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
+            
+            setRecommendations(prev => {
+                const updatedPlaylists = [...prev, newPlaylist];
+                return updatedPlaylists.slice(-MAX_PLAYLISTS);
+            });
+          } else if (recommendations.length === 0) {
+             // Only set placeholder if there are absolutely no recommendations at all and the AI failed
+             setRecommendations([{
+                playlistTitle: 'Popular Playlists',
+                tracks: placeholderImages.slice(0, 6).map(p => ({
+                    id: p.id,
+                    title: p.description,
+                    artist: 'Various Artists',
+                    duration: 0,
+                    thumbnail: p.imageUrl,
+                    url: '',
+                    viewCount: 0,
+                }))
+            }]);
+          }
 
         } catch (error) {
           console.error("Failed to get recommendations:", error);
