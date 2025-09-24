@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 
@@ -11,12 +10,12 @@ type SearchBarProps = {
 export function SearchBar({
   initialQuery = "",
 }: SearchBarProps) {
-  const [query, setQuery] = useState(initialQuery)
 
-  // Sync the input value if the initialQuery prop changes (e.g., browser back/forward)
-  useEffect(() => {
-    setQuery(initialQuery)
-  }, [initialQuery])
+  // This component is now an "uncontrolled component".
+  // It uses defaultValue to set the initial text, but after that,
+  // the browser's DOM manages the input's state. This is simpler
+  // and avoids all the useEffect/useState complexity that was
+  // causing the router initialization race condition.
 
   return (
     <div className="relative w-full">
@@ -26,8 +25,7 @@ export function SearchBar({
         name="q" // Use name attribute for form submission
         placeholder="Search for songs, artists, albums..."
         className="w-full pl-10 pr-4 py-3 h-12 text-base bg-secondary border-0 focus-visible:ring-primary focus-visible:ring-2"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        defaultValue={initialQuery}
         autoFocus
       />
     </div>
