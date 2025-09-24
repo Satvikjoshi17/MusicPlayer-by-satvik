@@ -22,12 +22,11 @@ export function SearchResults({ query }: SearchResultsProps) {
   const { playTrack } = usePlayer()
 
   useEffect(() => {
-    // Abort any ongoing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    if (query.length < 1) {
+    if (!query) {
       setResults([]);
       setError(null);
       return;
@@ -37,10 +36,6 @@ export function SearchResults({ query }: SearchResultsProps) {
     abortControllerRef.current = newAbortController;
 
     startTransition(() => {
-      // Clear previous state immediately when a new search starts
-      setResults([]);
-      setError(null);
-      
       const fetchResults = async () => {
         try {
           const searchResults = await searchTracks(
@@ -48,19 +43,16 @@ export function SearchResults({ query }: SearchResultsProps) {
             newAbortController.signal
           );
           if (!newAbortController.signal.aborted) {
-            // A second transition to update with the results
-            startTransition(() => {
-                setResults(searchResults);
-            });
+            setError(null);
+            setResults(searchResults);
           }
         } catch (e: any) {
           if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
             console.error(e);
-            startTransition(() => {
-                setError(
-                    e.message || "Failed to fetch search results. The server might be down."
-                );
-            });
+            setResults([]);
+            setError(
+                e.message || "Failed to fetch search results. The server might be down."
+            );
           }
         }
       };
@@ -91,7 +83,7 @@ export function SearchResults({ query }: SearchResultsProps) {
     );
   }
 
-  if (query && results.length === 0) {
+  if (query && !isPending && results.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
         <Music className="w-16 h-16" />
