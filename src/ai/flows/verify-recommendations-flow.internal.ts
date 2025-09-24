@@ -61,23 +61,26 @@ export const verifyRecommendationsFlow = ai.defineFlow(
   },
   async (input) => {
     const totalTracks = input.recommendations.length;
-    console.log(`[verifyRecommendationsFlow] Starting verification for ${totalTracks} tracks.`);
+    console.log(`[verifyRecommendationsFlow] Starting parallel verification for ${totalTracks} tracks.`);
     
-    const verifiedTracks: (Track | null)[] = [];
+    const verificationPromises = input.recommendations.map(async (rec) => {
+      try {
+        console.log(`[verifyRecommendationsFlow] Verifying: "${rec.title}" by ${rec.artist}`);
+        const track = await findTrackTool(rec);
+        console.log(`[verifyRecommendationsFlow] -> Successfully verified: "${rec.title}"`);
+        return track;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`[verifyRecommendationsFlow] -> Failed to verify ("${rec.title}" by ${rec.artist}): ${errorMessage}`);
+        return null; // Return null if a track can't be verified.
+      }
+    });
 
-    // Process recommendations sequentially to avoid rate-limiting the backend API.
-    for (const [index, rec] of input.recommendations.entries()) {
-        try {
-            console.log(`[verifyRecommendationsFlow] Verifying song ${index + 1} of ${totalTracks}: "${rec.title}" by ${rec.artist}`);
-            const track = await findTrackTool(rec);
-            verifiedTracks.push(track);
-            console.log(`[verifyRecommendationsFlow] -> Successfully verified song ${index + 1}: "${rec.title}"`);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.warn(`[verifyRecommendationsFlow] -> Failed to verify song ${index + 1} ("${rec.title}" by ${rec.artist}): ${errorMessage}`);
-            verifiedTracks.push(null); // Push null if a track can't be verified.
-        }
-    }
+    const results = await Promise.allSettled(verificationPromises);
+
+    const verifiedTracks = results.map(result => 
+      result.status === 'fulfilled' ? result.value : null
+    );
     
     console.log('[verifyRecommendationsFlow] Finished verification process.');
     return {
