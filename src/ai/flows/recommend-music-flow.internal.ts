@@ -84,6 +84,10 @@ export const recommendMusicFlow = ai.defineFlow(
     const validTracks = verifiedOutput.tracks.filter((t): t is Track => t !== null);
     console.log(`[recommendMusicFlow] Verification complete. Found ${validTracks.length} valid tracks out of ${ideas.recommendations.length} ideas.`);
 
+    if (validTracks.length === 0) {
+      console.warn('[recommendMusicFlow] No valid tracks were found after verification. Returning empty playlist.');
+    }
+
     const result = {
       playlistTitle: ideas.playlistTitle,
       recommendations: validTracks,

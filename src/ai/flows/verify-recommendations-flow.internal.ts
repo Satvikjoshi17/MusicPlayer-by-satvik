@@ -19,7 +19,7 @@ const findTrackTool = ai.defineTool(
       title: z.string().describe("The title of the song to search for."),
       artist: z.string().describe("The artist of the song."),
     }),
-    outputSchema: z.custom<Track>(),
+    outputSchema: z.custom<Track | null>(),
   },
   async ({ title, artist }) => {
     console.log(`[findTrackTool] Searching for track: "${title}" by ${artist}`);
@@ -30,11 +30,11 @@ const findTrackTool = ai.defineTool(
         return results[0]; 
       }
       console.warn(`[findTrackTool] No tracks found for "${title}" by ${artist}.`);
-      throw new Error('No tracks found.');
+      return null;
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       console.error(`[findTrackTool] Failed to find track for "${title}" by ${artist}. Error: ${errorMessage}`);
-      throw new Error(`Could not find a playable track for ${title} by ${artist}.`);
+      return null; // Return null on error to not block other verifications
     }
   }
 );
@@ -63,19 +63,12 @@ export const verifyRecommendationsFlow = ai.defineFlow(
     const totalTracks = input.recommendations.length;
     console.log(`[verifyRecommendationsFlow] Starting parallel verification for ${totalTracks} tracks.`);
     
-    const verificationPromises = input.recommendations.map(async (rec) => {
-      try {
-        console.log(`[verifyRecommendationsFlow] Verifying: "${rec.title}" by ${rec.artist}`);
-        const track = await findTrackTool(rec);
-        console.log(`[verifyRecommendationsFlow] -> Successfully verified: "${rec.title}"`);
-        return track;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.warn(`[verifyRecommendationsFlow] -> Failed to verify ("${rec.title}" by ${rec.artist}): ${errorMessage}`);
-        return null; // Return null if a track can't be verified.
-      }
+    const verificationPromises = input.recommendations.map((rec) => {
+      // No try-catch here, let the tool handle it gracefully by returning null
+      return findTrackTool(rec);
     });
 
+    // Use Promise.allSettled to ensure all verifications complete, even if some fail.
     const results = await Promise.allSettled(verificationPromises);
 
     const verifiedTracks = results.map(result => 
