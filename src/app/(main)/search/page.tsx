@@ -1,3 +1,4 @@
+
 import { SearchClientPage } from '@/components/music/search-client-page';
 import { Suspense } from 'react';
 import { TrackListSkeleton } from '@/components/music/track-list-skeleton';
