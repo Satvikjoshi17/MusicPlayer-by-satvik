@@ -75,44 +75,46 @@ export function SearchResults({ query }: SearchResultsProps) {
     playTrack(track, results, { type: "search", query })
   }
 
-  if (isPending && results.length === 0) {
+  if (isPending) {
     return <TrackListSkeleton count={5} />;
   }
 
-  return (
-    <div className="space-y-4">
-        {error && (
-          <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-            <ServerCrash className="w-16 h-16 text-destructive" />
-            <h3 className="text-xl font-semibold">An Error Occurred</h3>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {!error && query && results.length === 0 && !isPending && (
-          <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-            <Music className="w-16 h-16" />
-            <h3 className="text-xl font-semibold">
-              No results found for "{query}"
-            </h3>
-            <p>Try a different search term.</p>
-          </div>
-        )}
-        
-        {isPending && <TrackListSkeleton count={results.length > 0 ? results.length : 5}/>}
-
-        {!isPending && results.length > 0 && (
-          <div className="divide-y divide-border rounded-lg border">
-            {results.map((track) => (
-              <TrackItem
-                key={track.id}
-                track={track}
-                onPlay={() => handlePlay(track)}
-                context={{ type: "search" }}
-              />
-            ))}
-          </div>
-        )}
+  if (error) {
+    return (
+      <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
+        <ServerCrash className="w-16 h-16 text-destructive" />
+        <h3 className="text-xl font-semibold">An Error Occurred</h3>
+        <p>{error}</p>
       </div>
-  )
+    );
+  }
+
+  if (query && results.length === 0) {
+    return (
+      <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
+        <Music className="w-16 h-16" />
+        <h3 className="text-xl font-semibold">
+          No results found for "{query}"
+        </h3>
+        <p>Try a different search term.</p>
+      </div>
+    );
+  }
+
+  if (results.length > 0) {
+    return (
+      <div className="divide-y divide-border rounded-lg border">
+        {results.map((track) => (
+          <TrackItem
+            key={track.id}
+            track={track}
+            onPlay={() => handlePlay(track)}
+            context={{ type: "search" }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return null;
 }
