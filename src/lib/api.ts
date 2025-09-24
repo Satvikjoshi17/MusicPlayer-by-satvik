@@ -42,8 +42,8 @@ export async function searchTracks(query: string, signal?: AbortSignal): Promise
   const url = `${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`;
   
   try {
-    // Give this a longer timeout as it's used in a sequential verification flow.
-    const response = await fetchWithTimeout(url, { signal }, 60000); 
+    // Give this a shorter timeout to avoid hanging the verification flow.
+    const response = await fetchWithTimeout(url, { signal }, 15000); 
     if (!response.ok) {
       const errorBody = await response.text();
       console.error("Search API returned an error:", response.status, errorBody);
