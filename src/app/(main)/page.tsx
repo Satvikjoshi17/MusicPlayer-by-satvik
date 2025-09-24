@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -7,7 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
 import type { Track, DbPlaylist } from '@/lib/types';
-import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,7 +33,7 @@ export default function HomePage() {
 
   const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>([]);
   
-  const [isRecommendationPending, startRecommendationTransition] = useTransition();
+  const [isFetching, setIsFetching] = useState(false);
   const lastRecTrackIds = useRef<Set<string>>(new Set());
   const workerRef = useRef<Worker>();
 
@@ -47,39 +48,38 @@ export default function HomePage() {
     workerRef.current = new Worker(new URL('../../workers/recommendation.worker.ts', import.meta.url));
 
     workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | {error: string}>) => {
-      startRecommendationTransition(() => {
-        const result = event.data;
-        if ('error' in result) {
-            console.error("Worker error:", result.error);
-             setRecommendations(prev => {
-                const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
-                return withoutSkeleton.length > 0 ? withoutSkeleton : getFallbackPlaylists();
-             });
-        } else {
-            const { playlistTitle, recommendations: newTracks } = result;
-            if (newTracks.length > 0) {
-              const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
-              
-              setRecommendations(prev => {
-                  const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
-                  if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle && p.tracks[0]?.id === newPlaylist.tracks[0]?.id)) {
-                    updatedPlaylists.push(newPlaylist);
-                  }
-                  return updatedPlaylists.slice(-MAX_PLAYLISTS);
-              });
+      const result = event.data;
+      if ('error' in result) {
+          console.error("Worker error:", result.error);
+           setRecommendations(prev => {
+              const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
+              return withoutSkeleton.length > 0 ? withoutSkeleton : getFallbackPlaylists();
+           });
+      } else {
+          const { playlistTitle, recommendations: newTracks } = result;
+          if (newTracks.length > 0) {
+            const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
+            
+            setRecommendations(prev => {
+                const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
+                if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle && p.tracks[0]?.id === newPlaylist.tracks[0]?.id)) {
+                  updatedPlaylists.push(newPlaylist);
+                }
+                return updatedPlaylists.slice(-MAX_PLAYLISTS);
+            });
 
-              // After successfully getting a new recommendation, update the set of track IDs
-              // that we should consider "seen" for the purpose of fetching the next recommendation.
-              const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
-              const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
-              lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
+            // After successfully getting a new recommendation, update the set of track IDs
+            // that we should consider "seen" for the purpose of fetching the next recommendation.
+            const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
+            const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
+            lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
 
-            } else {
-              console.warn("Received 0 valid recommendations from the AI worker. Not updating playlist.");
-              setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
-            }
-        }
-      });
+          } else {
+            console.warn("Received 0 valid recommendations from the AI worker. Not updating playlist.");
+            setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
+          }
+      }
+      setIsFetching(false);
     };
 
     return () => {
@@ -125,33 +125,32 @@ export default function HomePage() {
     const newPlayedTrackIds = new Set([...currentTrackIds].filter(id => !lastRecTrackIds.current.has(id)));
     const hasPlayedEnoughNewTracks = newPlayedTrackIds.size >= RECOMMENDATION_REFRESH_THRESHOLD;
     
-    if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isRecommendationPending) {
+    if ((shouldFetchInitial || hasPlayedEnoughNewTracks) && !isFetching) {
         const recent = recentTracks.map(t => ({ title: t.title, artist: t.artist }));
         // Don't trigger for empty history unless there are also no recommendations (first load)
         if (recent.length === 0 && recommendations.length > 0) return;
 
-        startRecommendationTransition(() => {
-            const tempId = `skeleton-${Date.now()}`;
-            const skeletonPlaylist: RecommendationPlaylist = {
-                playlistTitle: 'Curating new music...',
-                tracks: Array.from({ length: 6 }).map((_, i) => ({
-                id: `${tempId}-${i}`,
-                title: 'Loading...',
-                artist: '...',
-                duration: 0,
-                thumbnail: '',
-                url: '',
-                viewCount: 0,
-                })),
-            };
-            setRecommendations(prev => [...prev.slice(-MAX_PLAYLISTS + 1), skeletonPlaylist]);
-        });
+        setIsFetching(true);
+        const tempId = `skeleton-${Date.now()}`;
+        const skeletonPlaylist: RecommendationPlaylist = {
+            playlistTitle: 'Curating new music...',
+            tracks: Array.from({ length: 6 }).map((_, i) => ({
+            id: `${tempId}-${i}`,
+            title: 'Loading...',
+            artist: '...',
+            duration: 0,
+            thumbnail: '',
+            url: '',
+            viewCount: 0,
+            })),
+        };
+        setRecommendations(prev => [...prev.slice(-MAX_PLAYLISTS + 1), skeletonPlaylist]);
         
         workerRef.current.postMessage({ recentTracks: recent.slice(0, 10) });
         // Update immediately to prevent re-triggering for the same set of songs
         lastRecTrackIds.current = currentTrackIds;
     }
-  }, [recentTracks, recommendations.length, isRecommendationPending]);
+  }, [recentTracks, recommendations, isFetching]);
 
   const getFallbackPlaylists = (): RecommendationPlaylist[] => {
     return [{
@@ -213,6 +212,8 @@ export default function HomePage() {
     }
   };
 
+  const currentPlaylists = recommendations.length > 0 ? recommendations : (recentTracks && recentTracks.length > 0 ? [] : getFallbackPlaylists());
+
   return (
     <div className="container mx-auto px-4 py-8 md:p-8 space-y-12">
       <header className="text-center md:text-left">
@@ -225,7 +226,7 @@ export default function HomePage() {
       </header>
       
       <section className="space-y-8">
-        {recommendations.slice().reverse().map((playlist, playlistIndex) => (
+        {currentPlaylists.slice().reverse().map((playlist, playlistIndex) => (
           <div key={playlist.playlistTitle + playlistIndex}>
             <div className="flex items-center gap-3 mb-4">
                 <Music className="w-8 h-8 text-primary" />
@@ -305,3 +306,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
