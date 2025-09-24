@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Image from 'next/image';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 import type { RecommendMusicOutput } from '@/ai/flows/recommend-music-flow';
+import { useToast } from '@/hooks/use-toast';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
@@ -30,6 +32,7 @@ export type RecommendationPlaylist = {
 
 export default function HomePage() {
   const { playTrack } = usePlayer();
+  const { toast } = useToast();
 
   const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>([]);
   
@@ -51,6 +54,11 @@ export default function HomePage() {
       const result = event.data;
       if ('error' in result) {
           console.error("Worker error:", result.error);
+          toast({
+            variant: 'destructive',
+            title: 'Recommendation Error',
+            description: "Could not generate new music recommendations at this time.",
+          });
            setRecommendations(prev => {
               const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
               return withoutSkeleton.length > 0 ? withoutSkeleton : getFallbackPlaylists();
@@ -76,6 +84,11 @@ export default function HomePage() {
 
           } else {
             console.warn("Received 0 valid recommendations from the AI worker. Not updating playlist.");
+            toast({
+              title: 'Could Not Find Music',
+              description: "The AI couldn't verify its recommendations. Please try again later.",
+            });
+            // Remove skeleton if no tracks were found
             setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
           }
       }
@@ -85,7 +98,7 @@ export default function HomePage() {
     return () => {
         workerRef.current?.terminate();
     }
-  }, [recentTracks]);
+  }, [recentTracks, toast]);
 
   // Load from localStorage on client-side mount
   useEffect(() => {
