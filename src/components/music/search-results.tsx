@@ -16,6 +16,7 @@ type SearchResultsProps = {
 export function SearchResults({ query }: SearchResultsProps) {
   const [results, setResults] = useState<Track[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -29,11 +30,14 @@ export function SearchResults({ query }: SearchResultsProps) {
     if (!query) {
       setResults([]);
       setError(null);
+      setIsLoading(false);
       return;
     }
 
     const newAbortController = new AbortController();
     abortControllerRef.current = newAbortController;
+    
+    setIsLoading(true);
 
     startTransition(() => {
       const fetchResults = async () => {
@@ -54,6 +58,10 @@ export function SearchResults({ query }: SearchResultsProps) {
                 e.message || "Failed to fetch search results. The server might be down."
             );
           }
+        } finally {
+          if (!newAbortController.signal.aborted) {
+            setIsLoading(false);
+          }
         }
       };
 
@@ -69,7 +77,7 @@ export function SearchResults({ query }: SearchResultsProps) {
     playTrack(track, results, { type: "search", query });
   };
 
-  if (isPending) {
+  if (isLoading) {
     return <TrackListSkeleton count={5} />;
   }
 
@@ -82,8 +90,8 @@ export function SearchResults({ query }: SearchResultsProps) {
       </div>
     );
   }
-
-  if (query && !isPending && results.length === 0) {
+  
+  if (query && results.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
         <Music className="w-16 h-16" />
