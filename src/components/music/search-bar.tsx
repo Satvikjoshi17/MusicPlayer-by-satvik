@@ -1,41 +1,37 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useTransition } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 
 type SearchBarProps = {
   initialQuery?: string
-  onQueryChange: (query: string) => void
 }
 
 export function SearchBar({
   initialQuery = "",
-  onQueryChange,
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery)
-  const debouncedQuery = useDebounce(query, 500)
-  const isInitialMount = useRef(true)
+  const debouncedQuery = useDebounce(query, 300)
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isPending, startTransition] = useTransition();
 
-  // Effect to inform the parent component about the debounced query change
+
   useEffect(() => {
-    // We don't want to trigger a URL update on the initial mount.
-    // The parent component will handle the initial state from the URL.
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    
-    // Only call the parent if the debounced query is different from the initial one
-    // that came from the URL. This prevents an extra router.replace call on load.
+    // Only update the URL if the debounced query is different from the initial prop.
+    // This prevents an unnecessary router push on initial render.
     if (debouncedQuery !== initialQuery) {
-        onQueryChange(debouncedQuery);
+        startTransition(() => {
+            const url = debouncedQuery ? `${pathname}?q=${encodeURIComponent(debouncedQuery)}` : pathname;
+            router.replace(url, { scroll: false });
+        });
     }
-  }, [debouncedQuery, onQueryChange, initialQuery])
+  }, [debouncedQuery, initialQuery, pathname, router])
 
-  // Effect to sync local input state if the parent passes a new initialQuery.
-  // This happens when navigating via browser history (back/forward buttons).
+  // Sync the input value if the initialQuery prop changes (e.g., browser back/forward)
   useEffect(() => {
     setQuery(initialQuery)
   }, [initialQuery])
