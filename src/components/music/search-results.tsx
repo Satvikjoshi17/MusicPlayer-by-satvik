@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useTransition, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { searchTracks } from "@/lib/api"
 import type { Track } from "@/lib/types"
 import { TrackItem } from "@/components/music/track-item"
@@ -17,7 +17,6 @@ export function SearchResults({ query }: SearchResultsProps) {
   const [results, setResults] = useState<Track[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isPending, startTransition] = useTransition()
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const { playTrack } = usePlayer()
@@ -37,36 +36,34 @@ export function SearchResults({ query }: SearchResultsProps) {
     const newAbortController = new AbortController();
     abortControllerRef.current = newAbortController;
     
-    setIsLoading(true);
-
-    startTransition(() => {
-      const fetchResults = async () => {
-        try {
-          const searchResults = await searchTracks(
-            query,
-            newAbortController.signal
-          );
-          if (!newAbortController.signal.aborted) {
-            setError(null);
-            setResults(searchResults);
-          }
-        } catch (e: any) {
-          if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
-            console.error(e);
-            setResults([]);
-            setError(
-                e.message || "Failed to fetch search results. The server might be down."
-            );
-          }
-        } finally {
-          if (!newAbortController.signal.aborted) {
-            setIsLoading(false);
-          }
+    const fetchResults = async () => {
+      setIsLoading(true);
+      setResults([]); // Clear previous results to ensure skeleton shows
+      setError(null);
+      try {
+        const searchResults = await searchTracks(
+          query,
+          newAbortController.signal
+        );
+        if (!newAbortController.signal.aborted) {
+          setResults(searchResults);
         }
-      };
+      } catch (e: any) {
+        if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
+          console.error(e);
+          setResults([]);
+          setError(
+              e.message || "Failed to fetch search results. The server might be down."
+          );
+        }
+      } finally {
+        if (!newAbortController.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-      fetchResults();
-    });
+    fetchResults();
 
     return () => {
       newAbortController.abort();
