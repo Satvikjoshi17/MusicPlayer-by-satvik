@@ -10,9 +10,10 @@ export function SearchClientPage() {
 
   return (
     <>
-      <div className="max-w-2xl mx-auto">
+      <form className="max-w-2xl mx-auto" action="/search" method="GET">
         <SearchBar initialQuery={query} />
-      </div>
+        {/* No submit button needed, hitting Enter in the input will submit the form */}
+      </form>
       <SearchResults query={query} />
     </>
   )
