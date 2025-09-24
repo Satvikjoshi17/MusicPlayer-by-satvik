@@ -22,58 +22,60 @@ export function SearchResults({ query }: SearchResultsProps) {
   const { playTrack } = usePlayer()
 
   useEffect(() => {
+    // Abort any ongoing request
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
+      abortControllerRef.current.abort();
     }
 
     if (query.length < 1) {
-      setResults([])
-      setError(null)
-      return
+      setResults([]);
+      setError(null);
+      return;
     }
 
-    const newAbortController = new AbortController()
-    abortControllerRef.current = newAbortController
+    const newAbortController = new AbortController();
+    abortControllerRef.current = newAbortController;
 
-    const fetchResults = async () => {
+    startTransition(() => {
+      // Clear previous state immediately when a new search starts
+      setResults([]);
+      setError(null);
+      
+      const fetchResults = async () => {
         try {
           const searchResults = await searchTracks(
             query,
             newAbortController.signal
           );
           if (!newAbortController.signal.aborted) {
+            // A second transition to update with the results
             startTransition(() => {
-                setError(null);
                 setResults(searchResults);
             });
           }
         } catch (e: any) {
           if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
-            console.error(e)
+            console.error(e);
             startTransition(() => {
                 setError(
                     e.message || "Failed to fetch search results. The server might be down."
-                )
-                setResults([]);
+                );
             });
           }
         }
-    }
+      };
 
-    startTransition(() => {
-        // This transition is intentionally left to only set isPending to true
-        // while the async fetchResults runs. The results are set in their own transition.
+      fetchResults();
     });
-    fetchResults()
 
     return () => {
-      newAbortController.abort()
-    }
-  }, [query])
+      newAbortController.abort();
+    };
+  }, [query]);
 
   const handlePlay = (track: Track) => {
-    playTrack(track, results, { type: "search", query })
-  }
+    playTrack(track, results, { type: "search", query });
+  };
 
   if (isPending) {
     return <TrackListSkeleton count={5} />;
