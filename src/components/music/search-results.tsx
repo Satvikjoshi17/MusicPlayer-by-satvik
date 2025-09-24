@@ -99,7 +99,7 @@ export function SearchResults({ query }: SearchResultsProps) {
           </div>
         )}
         
-        {isPending && results.length > 0 && <TrackListSkeleton count={results.length}/>}
+        {isPending && <TrackListSkeleton count={results.length > 0 ? results.length : 5}/>}
 
         {!isPending && results.length > 0 && (
           <div className="divide-y divide-border rounded-lg border">

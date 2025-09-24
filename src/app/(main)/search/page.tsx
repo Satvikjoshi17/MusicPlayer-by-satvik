@@ -4,8 +4,10 @@ import { Suspense } from 'react';
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<TrackListSkeleton count={5} />}>
-      <SearchClientPage />
-    </Suspense>
+    <div className="container mx-auto px-4 py-8 md:p-8 space-y-8">
+      <Suspense fallback={<TrackListSkeleton count={5} />}>
+        <SearchClientPage />
+      </Suspense>
+    </div>
   );
 }

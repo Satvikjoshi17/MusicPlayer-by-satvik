@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -16,18 +16,28 @@ export function SearchBar({
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery)
   const debouncedQuery = useDebounce(query, 500)
+  const isInitialMount = useRef(true)
 
   // Effect to inform the parent component about the debounced query change
   useEffect(() => {
-    onQueryChange(debouncedQuery)
-  }, [debouncedQuery, onQueryChange])
-
-  // Effect to sync local state if the initialQuery from props changes
-  // This happens on initial load and when navigating via browser history
-  useEffect(() => {
-    if (initialQuery !== query) {
-        setQuery(initialQuery)
+    // We don't want to trigger a URL update on the initial mount.
+    // The parent component will handle the initial state from the URL.
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
     }
+    
+    // Only call the parent if the debounced query is different from the initial one
+    // that came from the URL. This prevents an extra router.replace call on load.
+    if (debouncedQuery !== initialQuery) {
+        onQueryChange(debouncedQuery);
+    }
+  }, [debouncedQuery, onQueryChange, initialQuery])
+
+  // Effect to sync local input state if the parent passes a new initialQuery.
+  // This happens when navigating via browser history (back/forward buttons).
+  useEffect(() => {
+    setQuery(initialQuery)
   }, [initialQuery])
 
   return (
