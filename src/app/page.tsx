@@ -7,7 +7,7 @@ import { placeholderImages } from '@/lib/placeholder-images';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
-import type { Track, DbPlaylist } from '@/lib/types';
+import type { Track, DbPlaylist, RecommendationPlaylist } from '@/lib/types';
 import { useMemo, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -22,12 +22,6 @@ import { useToast } from '@/hooks/use-toast';
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
 const LOCALSTORAGE_KEY = 'musicRecommendations';
-
-
-export type RecommendationPlaylist = {
-  playlistTitle: string;
-  tracks: Track[];
-};
 
 export default function HomePage() {
   const { playTrack } = usePlayer();

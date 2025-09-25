@@ -20,6 +20,12 @@ export type StreamResponse = {
   message: string;
 };
 
+// For AI-generated playlists on the homepage
+export type RecommendationPlaylist = {
+  playlistTitle: string;
+  tracks: Track[];
+};
+
 
 // IndexedDB Schema Types
 export type DbDownload = Track & {
