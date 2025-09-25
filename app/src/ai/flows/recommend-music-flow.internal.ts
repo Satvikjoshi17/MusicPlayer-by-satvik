@@ -38,6 +38,7 @@ const prompt = ai.definePrompt({
   name: 'recommendMusicPrompt',
   input: {schema: RecommendMusicInputSchema},
   output: {schema: RecommendMusicOutputSchema},
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are an expert DJ who creates personalized playlists. Based on the user's listening history, create a themed playlist of 6 songs.
 
 You must provide:
@@ -93,7 +94,7 @@ export const recommendMusicFlow = ai.defineFlow(
       recommendations: validTracks,
     };
 
-    console.log(`[recommendMusicFlow] Returning final playlist with ${result.recommendations.length} tracks to client.`);
+    console.log(`[recommendMusicFlow] Returning final playlist with ${result.recommendations.length} tracks.`);
     return result;
   }
 );
