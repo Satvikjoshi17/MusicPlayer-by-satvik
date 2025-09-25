@@ -18,6 +18,7 @@ import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 import type { RecommendMusicOutput } from '@/ai/flows/recommend-music-flow';
 import { useToast } from '@/hooks/use-toast';
+import RecommendationWorker from '@/workers/recommendation.worker';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
@@ -42,7 +43,7 @@ export default function HomePage() {
 
   // Initialize Web Worker
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
+    workerRef.current = new RecommendationWorker();
 
     workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | {error: string}>) => {
       const result = event.data;
