@@ -1,3 +1,4 @@
+
 import Dexie, { type Table } from 'dexie';
 import type { DbPlaylist, DbDownload, DbRecent, DbSetting } from './types';
 

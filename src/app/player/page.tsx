@@ -1,3 +1,4 @@
+
 import { PlayerFull } from '@/components/music/player-full';
 
 export default function PlayerPage() {

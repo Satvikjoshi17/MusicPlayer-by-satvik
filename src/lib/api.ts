@@ -1,3 +1,4 @@
+
 import type { SearchResponse, StreamResponse, Track } from './types';
 
 const API_BASE_URL = 'https://musicplayerbackend-us5o.onrender.com';

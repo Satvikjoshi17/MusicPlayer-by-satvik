@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview The internal implementation of the music recommendation AI agent.
  * This file is not a server action and should not be imported directly by client components.
@@ -93,7 +94,7 @@ export const recommendMusicFlow = ai.defineFlow(
       recommendations: validTracks,
     };
 
-    console.log('[recommendMusicFlow] Returning final playlist to client.');
+    console.log(`[recommendMusicFlow] Returning final playlist to client.`);
     return result;
   }
 );

@@ -10,7 +10,9 @@
 !.yarn/releases
 !.yarn/versions
 
-
+node_modules
+.next/
+.idx/
 # testing
 /coverage
 

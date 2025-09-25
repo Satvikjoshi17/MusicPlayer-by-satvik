@@ -3,49 +3,49 @@
     {
       "id": "1",
       "description": "Chill Lo-fi Beats",
-      "imageUrl": "https://picsum.photos/seed/1/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1685463894505-d33387aa8430?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxsb2ZpJTIwc3R1ZHl8ZW58MHx8fHwxNzU4NzY1Mzc0fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "lofi study"
     },
     {
       "id": "2",
       "description": "Synthwave Dreams",
-      "imageUrl": "https://picsum.photos/seed/2/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1630825523112-ff511a36e2a6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxzeW50aHdhdmUlMjBuZW9ufGVufDB8fHx8MTc1ODgwOTM5NHww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "synthwave neon"
     },
     {
       "id": "3",
       "description": "Acoustic Mornings",
-      "imageUrl": "https://picsum.photos/seed/3/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1715431150006-1f03ea6e4a37?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxhY291c3RpYyUyMGd1aXRhcnxlbnwwfHx8fDE3NTg4MDA2NjR8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "acoustic guitar"
     },
     {
       "id": "4",
       "description": "Workout Hits",
-      "imageUrl": "https://picsum.photos/seed/4/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1653773869760-5b0f846231fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxneW0lMjB3b3Jrb3V0fGVufDB8fHx8MTc1ODc5NzcxM3ww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "gym workout"
     },
     {
       "id": "5",
       "description": "Indie Pop Jams",
-      "imageUrl": "https://picsum.photos/seed/5/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1743203559734-b6ac14e5e0a1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxpbmRpZSUyMGNvbmNlcnR8ZW58MHx8fHwxNzU4ODA5Mzk0fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "indie concert"
     },
     {
       "id": "6",
       "description": "Classical Focus",
-      "imageUrl": "https://picsum.photos/seed/6/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1707746951593-8c6f71c12b8a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwaWFubyUyMGNsYXNzaWNhbHxlbnwwfHx8fDE3NTg4MDkzOTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "piano classical"
     },
     {
       "id": "7",
       "description": "Deep House Grooves",
-      "imageUrl": "https://picsum.photos/seed/7/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1544616326-a041e9e3b348?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxkaiUyMHR1cm50YWJsZXxlbnwwfHx8fDE3NTg3MDgwNTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "dj turntable"
     },
     {
       "id": "8",
       "description": "Rock Anthems",
-      "imageUrl": "https://picsum.photos/seed/8/400/400",
+      "imageUrl": "https://images.unsplash.com/photo-1629276301820-0f3eedc29fd0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxyb2NrJTIwY29uY2VydHxlbnwwfHx8fDE3NTg3MTEzOTV8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "rock concert"
     }
   ]
