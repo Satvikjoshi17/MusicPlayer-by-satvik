@@ -117,5 +117,3 @@ export function SearchResults({ query }: SearchResultsProps) {
 
   return null;
 }
-
-    
