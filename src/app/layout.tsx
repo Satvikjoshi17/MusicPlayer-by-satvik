@@ -6,6 +6,7 @@ import { AppWrapper } from '@/components/app-wrapper';
 export const metadata = {
   title: 'satvikx',
   description: 'A dark-theme, mobile-first music player.',
+  manifest: '/manifest.json',
 };
 
 export const viewport = {
