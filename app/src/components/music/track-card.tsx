@@ -7,9 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Track, DbPlaylist } from '@/lib/types';
+import type { Track, DbPlaylist, RecommendationPlaylist } from '@/lib/types';
 import { placeholderImages } from '@/lib/placeholder-images';
-import type { RecommendationPlaylist } from '@/app/page';
 import { TrackActions } from './track-actions';
 
 type TrackCardProps = {
