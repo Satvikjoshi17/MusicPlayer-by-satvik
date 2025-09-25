@@ -18,7 +18,7 @@ import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 import type { RecommendMusicOutput } from '@/ai/flows/recommend-music-flow';
 import { useToast } from '@/hooks/use-toast';
-// import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
@@ -42,16 +42,20 @@ export default function HomePage() {
 
   // Initialize Web Worker
 
+  const router = useRouter();
+
   useEffect(() => {
-    if (typeof window === 'undefined') return; // SSR guard
-  
-    const routerReady = typeof window !== 'undefined'; // basic hydration check
+    if (typeof window === 'undefined') return;
   
     const worker = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
     workerRef.current = worker;
   
     worker.onmessage = (event: MessageEvent<RecommendMusicOutput | { error: string }>) => {
-      if (!routerReady) return; // avoid dispatching before router is ready
+      // Delay handling until hydration is complete
+      if (document.readyState !== 'complete') {
+        setTimeout(() => worker.onmessage?.(event), 50);
+        return;
+      }
   
       const result = event.data;
   
