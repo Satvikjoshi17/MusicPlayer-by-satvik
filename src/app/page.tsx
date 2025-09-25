@@ -18,6 +18,7 @@ import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 import type { RecommendMusicOutput } from '@/ai/flows/recommend-music-flow';
 import { useToast } from '@/hooks/use-toast';
+// import { useRouter } from 'next/navigation';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
@@ -40,54 +41,70 @@ export default function HomePage() {
   );
 
   // Initialize Web Worker
+
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
-
-    workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | {error: string}>) => {
+    if (typeof window === 'undefined') return; // SSR guard
+  
+    const routerReady = typeof window !== 'undefined'; // basic hydration check
+  
+    const worker = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
+    workerRef.current = worker;
+  
+    worker.onmessage = (event: MessageEvent<RecommendMusicOutput | { error: string }>) => {
+      if (!routerReady) return; // avoid dispatching before router is ready
+  
       const result = event.data;
+  
       if ('error' in result) {
-          console.error("Worker error:", result.error);
-          toast({
-            variant: 'destructive',
-            title: 'Recommendation Error',
-            description: "Could not generate new music recommendations at this time.",
-          });
+        console.error('Worker error:', result.error);
+        toast({
+          variant: 'destructive',
+          title: 'Recommendation Error',
+          description: 'Could not generate new music recommendations at this time.',
+        });
       } else {
-          const { playlistTitle, recommendations: newTracks } = result;
-          if (newTracks.length > 0) {
-            const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
-            
-            setRecommendations(prev => {
-                const updatedPlaylists = prev.map(p => p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p);
-                if (!updatedPlaylists.some(p => p.playlistTitle === newPlaylist.playlistTitle && p.tracks[0]?.id === newPlaylist.tracks[0]?.id)) {
-                  updatedPlaylists.push(newPlaylist);
-                }
-                return updatedPlaylists.slice(-MAX_PLAYLISTS);
-            });
-
-            // After successfully getting a new recommendation, update the set of track IDs
-            // that we should consider "seen" for the purpose of fetching the next recommendation.
-            const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
-            const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
-            lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
-
-          } else {
-            console.warn("Received 0 valid recommendations from the AI worker. Not updating playlist.");
-            toast({
-              title: 'Could Not Find Music',
-              description: "The AI couldn't verify its recommendations. Please try again later.",
-            });
-          }
+        const { playlistTitle, recommendations: newTracks } = result;
+  
+        if (newTracks.length > 0) {
+          const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
+  
+          setRecommendations(prev => {
+            const updatedPlaylists = prev.map(p =>
+              p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p
+            );
+            if (
+              !updatedPlaylists.some(
+                p =>
+                  p.playlistTitle === newPlaylist.playlistTitle &&
+                  p.tracks[0]?.id === newPlaylist.tracks[0]?.id
+              )
+            ) {
+              updatedPlaylists.push(newPlaylist);
+            }
+            return updatedPlaylists.slice(-MAX_PLAYLISTS);
+          });
+  
+          const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
+          const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
+          lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
+        } else {
+          console.warn('Received 0 valid recommendations from the AI worker. Not updating playlist.');
+          toast({
+            title: 'Could Not Find Music',
+            description: "The AI couldn't verify its recommendations. Please try again later.",
+          });
+        }
       }
+  
       setIsFetching(false);
-       // Remove skeleton if no tracks were found or on error
-       setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
+      setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
     };
-
+  
     return () => {
-        workerRef.current?.terminate();
-    }
+      worker.terminate();
+    };
   }, [recentTracks, toast]);
+  
 
   // Load from localStorage on client-side mount
   useEffect(() => {
