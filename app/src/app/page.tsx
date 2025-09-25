@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Image from 'next/image';
@@ -48,7 +47,7 @@ export default function HomePage() {
 
   // Initialize Web Worker
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../../workers/recommendation.worker.ts', import.meta.url));
+    workerRef.current = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
 
     workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | {error: string}>) => {
       const result = event.data;
@@ -59,10 +58,6 @@ export default function HomePage() {
             title: 'Recommendation Error',
             description: "Could not generate new music recommendations at this time.",
           });
-           setRecommendations(prev => {
-              const withoutSkeleton = prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-'));
-              return withoutSkeleton.length > 0 ? withoutSkeleton : getFallbackPlaylists();
-           });
       } else {
           const { playlistTitle, recommendations: newTracks } = result;
           if (newTracks.length > 0) {
@@ -88,11 +83,11 @@ export default function HomePage() {
               title: 'Could Not Find Music',
               description: "The AI couldn't verify its recommendations. Please try again later.",
             });
-            // Remove skeleton if no tracks were found
-            setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
           }
       }
       setIsFetching(false);
+       // Remove skeleton if no tracks were found or on error
+       setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
     };
 
     return () => {
@@ -227,6 +222,9 @@ export default function HomePage() {
 
   const currentPlaylists = recommendations.length > 0 ? recommendations : (recentTracks && recentTracks.length > 0 ? [] : getFallbackPlaylists());
 
+  const displayPlaylists = currentPlaylists.filter(p => !p.tracks.some(t => t.id.startsWith('skeleton-')));
+  const showSkeleton = currentPlaylists.some(p => p.tracks.some(t => t.id.startsWith('skeleton-')));
+
   return (
     <div className="container mx-auto px-4 py-8 md:p-8 space-y-12">
       <header className="text-center md:text-left">
@@ -239,7 +237,7 @@ export default function HomePage() {
       </header>
       
       <section className="space-y-8">
-        {currentPlaylists.slice().reverse().map((playlist, playlistIndex) => (
+        {displayPlaylists.slice().reverse().map((playlist, playlistIndex) => (
           <div key={playlist.playlistTitle + playlistIndex}>
             <div className="flex items-center gap-3 mb-4">
                 <Music className="w-8 h-8 text-primary" />
@@ -248,31 +246,40 @@ export default function HomePage() {
                 </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-              {playlist.tracks[0]?.id.startsWith('skeleton-') ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                    <Card key={i} className="bg-secondary border-0">
-                        <CardContent className="p-0">
-                            <Skeleton className="aspect-square w-full" />
-                            <div className="p-3">
-                                <Skeleton className="h-5 w-3/4 mb-2" />
-                                <Skeleton className="h-4 w-1/2" />
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))
-              ) : (
-                playlist.tracks.map((track) => (
-                  <TrackCard 
-                    key={track.id} 
-                    track={track} 
-                    playlist={playlist}
-                    onPlay={() => handlePlayRecommendation(track, playlist)} 
-                  />
-                ))
-              )}
+              {playlist.tracks.map((track) => (
+                <TrackCard 
+                  key={track.id} 
+                  track={track} 
+                  playlist={playlist}
+                  onPlay={() => handlePlayRecommendation(track, playlist)} 
+                />
+              ))}
             </div>
           </div>
         ))}
+        {showSkeleton && (
+           <div>
+            <div className="flex items-center gap-3 mb-4">
+                <Music className="w-8 h-8 text-primary" />
+                <h2 className="text-2xl font-bold font-headline">
+                  Curating new music...
+                </h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="bg-secondary border-0">
+                      <CardContent className="p-0">
+                          <Skeleton className="aspect-square w-full" />
+                          <div className="p-3">
+                              <Skeleton className="h-5 w-3/4 mb-2" />
+                              <Skeleton className="h-4 w-1/2" />
+                          </div>
+                      </CardContent>
+                  </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section>
@@ -319,3 +326,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
