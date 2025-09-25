@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +9,7 @@ import { MoreVertical, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Track, DbPlaylist } from '@/lib/types';
 import { placeholderImages } from '@/lib/placeholder-images';
-import type { RecommendationPlaylist } from '@/app/(main)/page';
+import type { RecommendationPlaylist } from '@/app/page';
 import { TrackActions } from './track-actions';
 
 type TrackCardProps = {
@@ -73,3 +74,5 @@ export function TrackCard({ track, playlist, onPlay }: TrackCardProps) {
     </Card>
   );
 }
+
+    

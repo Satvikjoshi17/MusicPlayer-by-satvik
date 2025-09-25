@@ -88,7 +88,7 @@ export function SearchResults({ query }: SearchResultsProps) {
     );
   }
   
-  if (query && results.length === 0) {
+  if (!isLoading && query && results.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
         <Music className="w-16 h-16" />
@@ -117,3 +117,5 @@ export function SearchResults({ query }: SearchResultsProps) {
 
   return null;
 }
+
+    
