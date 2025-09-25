@@ -23,6 +23,7 @@ const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
 const LOCALSTORAGE_KEY = 'musicRecommendations';
 
+
 export default function HomePage() {
   const { playTrack } = usePlayer();
   const { toast } = useToast();
