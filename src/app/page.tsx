@@ -28,8 +28,9 @@ export default function HomePage() {
   const { toast } = useToast();
 
   const [recommendations, setRecommendations] = useState<RecommendationPlaylist[]>([]);
-  
   const [isFetching, setIsFetching] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  
   const lastRecTrackIds = useRef<Set<string>>(new Set());
   const workerRef = useRef<Worker>();
 
@@ -38,14 +39,23 @@ export default function HomePage() {
     []
   );
 
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
   // Initialize Web Worker
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    workerRef.current = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
   
-    const worker = new Worker(new URL('../workers/recommendation.worker.ts', import.meta.url));
-    workerRef.current = worker;
-  
-    worker.onmessage = (event: MessageEvent<RecommendMusicOutput | { error: string }>) => {
+    workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | { error: string }>) => {
+      // Guard against updating state before hydration is complete.
+      if (!hydrated) {
+        setTimeout(() => workerRef.current?.onmessage?.(event), 50);
+        return;
+      }
+
       const result = event.data;
   
       if ('error' in result) {
@@ -94,9 +104,9 @@ export default function HomePage() {
     };
   
     return () => {
-      worker.terminate();
+      workerRef.current?.terminate();
     };
-  }, [recentTracks, toast]);
+  }, [recentTracks, toast, hydrated]);
   
 
   // Load from localStorage on client-side mount
@@ -128,7 +138,7 @@ export default function HomePage() {
   
   // Effect to fetch new recommendations based on listening history
   useEffect(() => {
-    if (recentTracks === undefined || !workerRef.current) return; // Still loading or worker not ready
+    if (recentTracks === undefined || !workerRef.current || !hydrated) return; // Still loading or worker not ready
 
     const currentTrackIds = new Set(recentTracks.map(t => t.id));
     const shouldFetchInitial = recommendations.length === 0 && recentTracks.length > 0;
@@ -162,7 +172,7 @@ export default function HomePage() {
         // Update immediately to prevent re-triggering for the same set of songs
         lastRecTrackIds.current = currentTrackIds;
     }
-  }, [recentTracks, recommendations, isFetching]);
+  }, [recentTracks, recommendations, isFetching, hydrated]);
 
   const getFallbackPlaylists = (): RecommendationPlaylist[] => {
     return [{
@@ -223,6 +233,51 @@ export default function HomePage() {
         target.src = newSrc;
     }
   };
+
+  if (!hydrated) {
+    return (
+       <div className="container mx-auto px-4 py-8 md:p-8 space-y-12">
+        <header className="text-center md:text-left">
+            <Skeleton className="h-12 w-3/4 mx-auto md:mx-0" />
+            <Skeleton className="h-6 w-1/2 mt-4 mx-auto md:mx-0" />
+        </header>
+        <section>
+            <div className="flex items-center gap-3 mb-4">
+                <Music className="w-8 h-8 text-muted" />
+                <Skeleton className="h-8 w-48" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="bg-secondary border-0">
+                      <CardContent className="p-0">
+                          <Skeleton className="aspect-square w-full" />
+                          <div className="p-3">
+                              <Skeleton className="h-5 w-3/4 mb-2" />
+                              <Skeleton className="h-4 w-1/2" />
+                          </div>
+                      </CardContent>
+                  </Card>
+              ))}
+            </div>
+        </section>
+         <section>
+          <div className="flex items-center justify-between mb-4">
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-6 w-20" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {Array.from({length: 4}).map((_, i) => (
+              <Card key={i} className="bg-secondary border-0 overflow-hidden group">
+                <CardContent className="p-0">
+                  <Skeleton className="aspect-square w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const currentPlaylists = recommendations.length > 0 ? recommendations : (recentTracks && recentTracks.length > 0 ? [] : getFallbackPlaylists());
 
@@ -330,3 +385,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
