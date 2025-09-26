@@ -26,6 +26,24 @@ export type RecommendationPlaylist = {
   playlistTitle: string;
   tracks: Track[];
 };
+// suggest by copilot
+
+export type RecentlyPlayedItem =
+| {
+    isPlaceholder: true;
+    id: string;
+    description: string;
+    imageUrl: string;
+    imageHint: string;
+  }
+| {
+    isPlaceholder: false;
+    id: string;
+    description: string;
+    imageUrl: string;
+    imageHint: string;
+    track: Track;
+  };
 
 
 // IndexedDB Schema Types
@@ -46,7 +64,7 @@ export type DbPlaylist = {
   name: string;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
-  tracks: PlaylistTrack[];
+  tracks: Track[];
 };
 
 export type DbRecent = Track & {

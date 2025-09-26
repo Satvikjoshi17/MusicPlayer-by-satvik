@@ -7,7 +7,7 @@ import { placeholderImages } from '@/lib/placeholder-images';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
-import type { Track, DbPlaylist, RecommendationPlaylist } from '@/lib/types';
+import type { Track, DbPlaylist, RecommendationPlaylist, RecentlyPlayedItem } from '@/lib/types';
 import { useMemo, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,9 @@ import { useToast } from '@/hooks/use-toast';
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
 const LOCALSTORAGE_KEY = 'musicRecommendations';
+
+
+
 
 export default function HomePage() {
   const { playTrack } = usePlayer();
@@ -39,6 +42,56 @@ export default function HomePage() {
     []
   );
 
+  function handleWorkerMessage(event: MessageEvent<RecommendMusicOutput | { error: string }>) {
+    const result = event.data;
+  
+    if ('error' in result) {
+      console.error('Worker error:', result.error);
+      toast({
+        variant: 'destructive',
+        title: 'Recommendation Error',
+        description: 'Could not generate new music recommendations at this time.',
+      });
+    } else {
+      const { playlistTitle, recommendations: newTracks } = result;
+  
+      if (newTracks.length > 0) {
+        const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
+  
+        setRecommendations(prev => {
+          const updatedPlaylists = prev.map(p =>
+            p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p
+          );
+          if (
+            !updatedPlaylists.some(
+              p =>
+                p.playlistTitle === newPlaylist.playlistTitle &&
+                p.tracks[0]?.id === newPlaylist.tracks[0]?.id
+            )
+          ) {
+            updatedPlaylists.push(newPlaylist);
+          }
+          return updatedPlaylists.slice(-MAX_PLAYLISTS);
+        });
+  
+        const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
+        const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
+        lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
+      } else {
+        console.warn('Received 0 valid recommendations from the AI worker. Not updating playlist.');
+        toast({
+          title: 'Could Not Find Music',
+          description: "The AI couldn't verify its recommendations. Please try again later.",
+        });
+      }
+    }
+  
+    setIsFetching(false);
+    setRecommendations(prev => prev.filter(p => !p.tracks.some(t => t.id.startsWith('skeleton-'))));
+  }
+
+
+
   useEffect(() => {
     setHydrated(true);
   }, []);
@@ -52,9 +105,13 @@ export default function HomePage() {
     workerRef.current.onmessage = (event: MessageEvent<RecommendMusicOutput | { error: string }>) => {
       // Guard against updating state before hydration is complete.
       if (!hydrated) {
-        setTimeout(() => workerRef.current?.onmessage?.(event), 50);
+        setTimeout(() => {
+          handleWorkerMessage(event);
+        }, 50);
         return;
       }
+    
+      handleWorkerMessage(event);
 
       const result = event.data;
   
@@ -114,11 +171,16 @@ export default function HomePage() {
     try {
       const saved = window.localStorage.getItem(LOCALSTORAGE_KEY);
       if (saved) {
-        const parsedRecommendations = JSON.parse(saved);
+        const parsedRecommendations = JSON.parse(saved) as RecommendationPlaylist[];
         setRecommendations(parsedRecommendations);
         // Initialize lastRecTrackIds with tracks from saved recommendations
-        const recommendedTrackIds = new Set(parsedRecommendations.flatMap((p: RecommendationPlaylist) => p.tracks.map((t:Track) => t.id)));
-        lastRecTrackIds.current = recommendedTrackIds;
+        const recommendedTrackIds = new Set(
+  parsedRecommendations.flatMap((p: RecommendationPlaylist) =>
+    p.tracks.map((t: Track) => t.id)
+  )
+);
+lastRecTrackIds.current = recommendedTrackIds;
+
       }
     } catch (error) {
       console.error("Failed to parse recommendations from localStorage", error);
@@ -189,7 +251,7 @@ export default function HomePage() {
     }];
   };
 
-  const recentlyPlayedItems = useMemo(() => {
+  const recentlyPlayedItems: RecentlyPlayedItem[] = useMemo(() => {
     if (!recentTracks || recentTracks.length === 0) {
       return placeholderImages.slice(0, 4).map(p => ({...p, isPlaceholder: true}));
     }
