@@ -63,9 +63,11 @@ export function SearchResults({ query }: SearchResultsProps) {
       }
     };
 
-    fetchResults();
+    // Debounce the fetch
+    const timeoutId = setTimeout(fetchResults, 300);
 
     return () => {
+      clearTimeout(timeoutId);
       newAbortController.abort();
     };
   }, [query]);
@@ -115,5 +117,11 @@ export function SearchResults({ query }: SearchResultsProps) {
     );
   }
 
-  return null;
+  return (
+    <div className="text-center py-16 text-muted-foreground">
+        <Music className="w-16 h-16 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold">Search for Music</h3>
+        <p>Find your favorite songs, artists, and albums.</p>
+    </div>
+  );
 }

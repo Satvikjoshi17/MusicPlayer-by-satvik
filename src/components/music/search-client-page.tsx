@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useSearchParams } from "next/navigation"
@@ -12,7 +13,6 @@ export function SearchClientPage() {
     <>
       <form className="max-w-2xl mx-auto" action="/search" method="GET">
         <SearchBar initialQuery={query} />
-        {/* No submit button needed, hitting Enter in the input will submit the form */}
       </form>
       <SearchResults query={query} />
     </>

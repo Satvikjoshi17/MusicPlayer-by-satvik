@@ -18,7 +18,6 @@ import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
 import type { RecommendMusicOutput } from '@/ai/flows/recommend-music-flow';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 
 const RECOMMENDATION_REFRESH_THRESHOLD = 5;
 const MAX_PLAYLISTS = 3;
@@ -34,16 +33,12 @@ export default function HomePage() {
   const lastRecTrackIds = useRef<Set<string>>(new Set());
   const workerRef = useRef<Worker>();
 
-
   const recentTracks = useLiveQuery(
     () => db.recent.orderBy('lastPlayedAt').reverse().limit(20).toArray(),
     []
   );
 
   // Initialize Web Worker
-
-  const router = useRouter();
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
   
@@ -51,12 +46,6 @@ export default function HomePage() {
     workerRef.current = worker;
   
     worker.onmessage = (event: MessageEvent<RecommendMusicOutput | { error: string }>) => {
-      // Delay handling until hydration is complete
-      if (document.readyState !== 'complete') {
-        setTimeout(() => worker.onmessage?.(event), 50);
-        return;
-      }
-  
       const result = event.data;
   
       if ('error' in result) {
@@ -101,7 +90,7 @@ export default function HomePage() {
       }
   
       setIsFetching(false);
-      setRecommendations(prev => prev.filter(p => !p.tracks[0]?.id.startsWith('skeleton-')));
+      setRecommendations(prev => prev.filter(p => !p.tracks.some(t => t.id.startsWith('skeleton-'))));
     };
   
     return () => {

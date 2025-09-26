@@ -53,6 +53,7 @@ export const PlayerContext = createContext<PlayerContextType | undefined>(undefi
 
 export function PlayerProvider({ children, audioRef }: { children: ReactNode, audioRef: React.RefObject<HTMLAudioElement> }) {
   const currentBlobUrl = useRef<string | null>(null);
+  const isSkippingRef = useRef(false);
   const { toast } = useToast();
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -112,6 +113,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   }, [isShuffled, queue, source]);
 
   const skipNext = useCallback(() => {
+    if (isSkippingRef.current) return;
+    isSkippingRef.current = true;
+    
     const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
     const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
     
@@ -124,6 +128,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
           const shuffledOriginalQueue = [...queue].sort(() => Math.random() - 0.5);
           nextTrack = shuffledOriginalQueue[0];
           playTrack(nextTrack, shuffledOriginalQueue, source);
+          setTimeout(() => { isSkippingRef.current = false; }, 500);
           return;
       } else {
           nextTrack = queue[0];
@@ -139,15 +144,19 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
           setProgress(1);
        }
     }
+    setTimeout(() => { isSkippingRef.current = false; }, 500);
   }, [isShuffled, shuffledPlayQueue, playQueue, loopMode, queue, playTrack, source, duration, audioRef, currentTrack]);
 
   const skipPrev = useCallback(() => {
+    if (isSkippingRef.current) return;
+    isSkippingRef.current = true;
+
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
+      setTimeout(() => { isSkippingRef.current = false; }, 500);
       return;
     }
     
-    // Find previous track in the original (non-shuffled) queue to maintain listening history logic
     const currentIndexInOriginal = queue.findIndex(t => t.id === currentTrack?.id);
 
     let prevTrack: Track | undefined;
@@ -162,6 +171,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     } else {
         if (audioRef.current) audioRef.current.currentTime = 0;
     }
+    setTimeout(() => { isSkippingRef.current = false; }, 500);
   }, [currentTrack, queue, playTrack, loopMode, source, audioRef]);
   
   const handleTrackEnd = useCallback(() => {
@@ -183,7 +193,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     const abortController = new AbortController();
     
     const loadAndPlay = async () => {
-      // Cleanup previous blob URL if it exists
       if (currentBlobUrl.current) {
         URL.revokeObjectURL(currentBlobUrl.current);
         currentBlobUrl.current = null;
@@ -239,14 +248,12 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   const addToQueue = (track: Track) => {
     if (!currentTrack) {
         const newQueue = [track];
-        // When starting a new queue, we must set the main queue state as well.
         setQueue(newQueue);
-        playTrack(track, newQueue, { type: 'unknown' });
+        playTrack(track, newQueue, { type: 'unknown' }); // Correctly start playing
         toast({ title: 'Playing next', description: `"${track.title}"` });
         return;
     }
   
-    // Add to the main queue if not already there
     setQueue(prevQueue => {
       if (prevQueue.some(t => t.id === track.id)) {
         return prevQueue;
@@ -257,19 +264,18 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       return newQueue;
     });
   
-    // Add to the currently active play queue (shuffled or ordered)
     if (isShuffled) {
       setShuffledPlayQueue(prev => {
         if (prev.some(t => t.id === track.id)) return prev;
         const newQueue = [...prev];
-        newQueue.splice(1, 0, track); // Add after current track
+        newQueue.splice(1, 0, track);
         return newQueue;
       });
     } else {
       setPlayQueue(prev => {
         if (prev.some(t => t.id === track.id)) return prev;
         const newQueue = [...prev];
-        newQueue.splice(1, 0, track); // Add after current track
+        newQueue.splice(1, 0, track);
         return newQueue;
       });
     }
@@ -339,12 +345,10 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
   }, [audioRef, isPlaying]);
 
-  // Effect to update media session when play state changes
   useEffect(() => {
     updatePositionState();
   }, [isPlaying, updatePositionState]);
   
-  // MediaSession API integration
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
 
@@ -446,7 +450,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     }
   }, [volume, audioRef]);
 
-  // Final cleanup on unmount
   useEffect(() => {
     return () => {
       if (currentBlobUrl.current) {
