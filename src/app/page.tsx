@@ -60,12 +60,14 @@ export default function HomePage() {
   
         setRecommendations(prev => {
           const updatedPlaylists = prev.map(p =>
-            p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p
+            p.tracks.some(t => t.id.startsWith('skeleton-')) ? newPlaylist : p
           );
           if (
             !updatedPlaylists.some(
               p =>
                 p.playlistTitle === newPlaylist.playlistTitle &&
+                p.tracks.length > 0 &&
+                newPlaylist.tracks.length > 0 &&
                 p.tracks[0]?.id === newPlaylist.tracks[0]?.id
             )
           ) {
@@ -91,7 +93,6 @@ export default function HomePage() {
   }
 
 
-
   useEffect(() => {
     setHydrated(true);
   }, []);
@@ -112,52 +113,6 @@ export default function HomePage() {
       }
     
       handleWorkerMessage(event);
-
-      const result = event.data;
-  
-      if ('error' in result) {
-        console.error('Worker error:', result.error);
-        toast({
-          variant: 'destructive',
-          title: 'Recommendation Error',
-          description: 'Could not generate new music recommendations at this time.',
-        });
-      } else {
-        const { playlistTitle, recommendations: newTracks } = result;
-  
-        if (newTracks.length > 0) {
-          const newPlaylist: RecommendationPlaylist = { playlistTitle, tracks: newTracks };
-  
-          setRecommendations(prev => {
-            const updatedPlaylists = prev.map(p =>
-              p.tracks[0]?.id.startsWith('skeleton-') ? newPlaylist : p
-            );
-            if (
-              !updatedPlaylists.some(
-                p =>
-                  p.playlistTitle === newPlaylist.playlistTitle &&
-                  p.tracks[0]?.id === newPlaylist.tracks[0]?.id
-              )
-            ) {
-              updatedPlaylists.push(newPlaylist);
-            }
-            return updatedPlaylists.slice(-MAX_PLAYLISTS);
-          });
-  
-          const newRecommendedTrackIds = new Set(newTracks.map(t => t.id));
-          const currentTrackIds = new Set(recentTracks?.map(t => t.id) || []);
-          lastRecTrackIds.current = new Set([...currentTrackIds, ...newRecommendedTrackIds]);
-        } else {
-          console.warn('Received 0 valid recommendations from the AI worker. Not updating playlist.');
-          toast({
-            title: 'Could Not Find Music',
-            description: "The AI couldn't verify its recommendations. Please try again later.",
-          });
-        }
-      }
-  
-      setIsFetching(false);
-      setRecommendations(prev => prev.filter(p => !p.tracks.some(t => t.id.startsWith('skeleton-'))));
     };
   
     return () => {
@@ -190,7 +145,7 @@ lastRecTrackIds.current = recommendedTrackIds;
   // Effect to save recommendations to localStorage whenever they change
   useEffect(() => {
     try {
-        if (recommendations.length > 0 && !recommendations.some(p => p.tracks[0]?.id.startsWith('skeleton-'))) {
+        if (recommendations.length > 0 && !recommendations.some(p => p.tracks.some(t => t.id.startsWith('skeleton-')))) {
             window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recommendations));
         }
     } catch (error) {
@@ -407,7 +362,7 @@ lastRecTrackIds.current = recommendedTrackIds;
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold font-headline">Recently Played</h2>
           <Button variant="link" asChild>
-            <Link href="/recent">See all</Link>
+            <Link href="/recent" prefetch={false}>See all</Link>
           </Button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

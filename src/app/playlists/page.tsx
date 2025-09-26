@@ -63,7 +63,7 @@ export default function PlaylistsPage() {
         {playlists && playlists.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {playlists.map((playlist) => (
-              <Link key={playlist.id} href={`/playlists/${playlist.id}`} passHref>
+              <Link key={playlist.id} href={`/playlists/${playlist.id}`} passHref prefetch={false}>
                 <Card className="bg-secondary border-0 group cursor-pointer h-full">
                   <CardContent className="p-4 flex flex-col items-start justify-end h-32">
                       <h3 className="font-semibold text-base truncate text-foreground">{playlist.name}</h3>

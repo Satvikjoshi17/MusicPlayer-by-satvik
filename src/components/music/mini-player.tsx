@@ -43,7 +43,7 @@ export function MiniPlayer() {
         isMobile ? 'bottom-20' : 'bottom-0',
         'md:bottom-auto md:top-auto'
     )}>
-      <Link href="/player" className="block">
+      <Link href="/player" className="block" prefetch={false}>
         <div 
           className={cn(
             "h-20 w-full bg-secondary/80 backdrop-blur-lg transition-transform duration-300",
