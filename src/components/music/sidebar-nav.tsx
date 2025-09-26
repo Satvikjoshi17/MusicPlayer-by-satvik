@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -38,11 +37,12 @@ export function SidebarNav() {
       <nav className="flex-1 space-y-6">
         <div className="space-y-1">
           {mainNavItems.map((item) => {
-             const isActive = (pathname === '/' && item.href === '/') || (pathname.startsWith(item.href) && item.href !== '/');
+            const isActive = (pathname === '/' && item.href === '/') || (pathname.startsWith(item.href) && item.href !== '/');
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground hover:bg-secondary',
                   isActive && 'bg-secondary text-primary'
@@ -56,23 +56,24 @@ export function SidebarNav() {
         </div>
         <Separator />
         <div className="space-y-1">
-            <h2 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider">Library</h2>
-            {libraryNavItems.map((item) => {
-                 const isActive = pathname.startsWith(item.href);
-                return (
-                <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground hover:bg-secondary',
-                    isActive && 'bg-secondary text-primary'
-                    )}
-                >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                </Link>
-                );
-            })}
+          <h2 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider">Library</h2>
+          {libraryNavItems.map((item) => {
+            const isActive = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={false}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground hover:bg-secondary',
+                  isActive && 'bg-secondary text-primary'
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </aside>
