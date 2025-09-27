@@ -1,25 +1,20 @@
 
+'use client';
 
 import './globals.css';
-
+import { usePathname } from 'next/navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { PlayerWrapper } from '@/context/player-context';
 import { AppWrapper } from '@/components/app-wrapper';
-
-export const metadata = {
-  title: 'satvikx',
-  description: 'A dark-theme, mobile-first music player.',
-};
-
-export const viewport = {
-  themeColor: '#121212',
-};
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const isPlayerPage = pathname === '/player';
+
   return (
     <html lang="en" className="dark">
       <head>
@@ -29,9 +24,13 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <PlayerWrapper>
-          <AppWrapper>
-            {children}
-          </AppWrapper>
+          {isPlayerPage ? (
+            children
+          ) : (
+            <AppWrapper>
+              {children}
+            </AppWrapper>
+          )}
         </PlayerWrapper>
         <Toaster />
       </body>

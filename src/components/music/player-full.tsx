@@ -49,7 +49,7 @@ export function PlayerFull() {
 
   return (
     <>
-      <div className="relative flex flex-col h-full w-full p-6 md:p-8 justify-between overflow-hidden">
+      <div className="relative flex flex-col h-screen w-full p-6 md:p-8 justify-between overflow-hidden">
         <div className="absolute inset-0 z-0">
           {currentTrack ? (
             <Image
