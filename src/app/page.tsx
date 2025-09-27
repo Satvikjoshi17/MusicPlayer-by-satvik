@@ -46,7 +46,7 @@ export default function HomePage() {
   };
 
   const recentlyPlayedItems: RecentlyPlayedItem[] = useMemo(() => {
-    if (!recentTracks || recentTracks.length === 0) {
+    if (!hydrated || !recentTracks || recentTracks.length === 0) {
       return placeholderImages.slice(0, 4).map(p => ({...p, isPlaceholder: true}));
     }
     return recentTracks.slice(0, 4).map((track, index) => ({
@@ -57,7 +57,7 @@ export default function HomePage() {
       track: track as Track,
       isPlaceholder: false,
     }));
-  }, [recentTracks]);
+  }, [recentTracks, hydrated]);
 
   const handlePlayRecent = (item: { track: Track, isPlaceholder?: boolean }) => {
     if (item.isPlaceholder || !item.track || !recentTracks) return;
@@ -80,13 +80,9 @@ export default function HomePage() {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
-    if (target.src.includes('picsum.photos')) {
-        return;
-    }
-    const placeholderIndex = (target.alt.length || 0) % placeholderImages.length;
-    const newSrc = placeholderImages[placeholderIndex].imageUrl;
-    if(target.src !== newSrc) {
-        target.src = newSrc;
+    const fallbackUrl = 'https://picsum.photos/seed/fallback/400/400';
+    if (target.src !== fallbackUrl) {
+      target.src = fallbackUrl;
     }
   };
 
@@ -164,7 +160,6 @@ export default function HomePage() {
                   track={track} 
                   playlist={playlist}
                   onPlay={() => handlePlayRecommendation(track, playlist)} 
-                  prefetch={false}
                 />
               ))}
             </div>
