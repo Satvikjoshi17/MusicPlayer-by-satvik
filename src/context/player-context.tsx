@@ -127,9 +127,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       if (isShuffled) {
           const shuffledOriginalQueue = [...queue].sort(() => Math.random() - 0.5);
           nextTrack = shuffledOriginalQueue[0];
-          playTrack(nextTrack, shuffledOriginalQueue, source);
-          setTimeout(() => { isSkippingRef.current = false; }, 500);
-          return;
+          setShuffledPlayQueue(shuffledOriginalQueue);
       } else {
           nextTrack = queue[0];
       }
@@ -156,14 +154,15 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       setTimeout(() => { isSkippingRef.current = false; }, 500);
       return;
     }
-    
-    const currentIndexInOriginal = queue.findIndex(t => t.id === currentTrack?.id);
 
+    const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
+    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
+    
     let prevTrack: Track | undefined;
-    if (currentIndexInOriginal > 0) {
-        prevTrack = queue[currentIndexInOriginal - 1];
-    } else if (loopMode === 'queue' && queue.length > 0) {
-        prevTrack = queue[queue.length - 1];
+    if (currentIndex > 0) {
+        prevTrack = activeQueue[currentIndex - 1];
+    } else if (loopMode === 'queue' && activeQueue.length > 0) {
+        prevTrack = activeQueue[activeQueue.length - 1];
     }
     
     if (prevTrack) {
@@ -172,7 +171,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
         if (audioRef.current) audioRef.current.currentTime = 0;
     }
     setTimeout(() => { isSkippingRef.current = false; }, 500);
-  }, [currentTrack, queue, playTrack, loopMode, source, audioRef]);
+  }, [currentTrack, queue, playTrack, loopMode, source, audioRef, isShuffled, playQueue, shuffledPlayQueue]);
   
   const handleTrackEnd = useCallback(() => {
     if (loopMode === 'single' && currentTrack && audioRef.current) {
@@ -248,8 +247,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   const addToQueue = (track: Track) => {
     if (!currentTrack) {
         const newQueue = [track];
-        setQueue(newQueue);
-        playTrack(track, newQueue, { type: 'unknown' }); // Correctly start playing
+        playTrack(track, newQueue, { type: 'unknown' });
         toast({ title: 'Playing next', description: `"${track.title}"` });
         return;
     }

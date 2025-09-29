@@ -30,11 +30,19 @@ function formatDuration(seconds: number) {
 }
 
 export function TrackItem({ track, onPlay, context }: TrackItemProps) {
-  const { currentTrack, isPlaying } = usePlayer();
+  const { currentTrack, isPlaying, togglePlay } = usePlayer();
   
   const isActive = currentTrack?.id === track.id;
   const isCurrentlyPlaying = isActive && isPlaying;
   const fallbackImage = placeholderImages[0];
+
+  const handlePlayClick = () => {
+    if (isActive) {
+      togglePlay();
+    } else {
+      onPlay(track);
+    }
+  }
 
   return (
     <div
@@ -56,7 +64,7 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
           variant="ghost"
           size="icon"
           className="absolute inset-0 w-full h-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md text-white"
-          onClick={() => onPlay(track)}
+          onClick={handlePlayClick}
         >
           {isCurrentlyPlaying ? (
             <Pause className="w-6 h-6 fill-white" />
@@ -65,9 +73,9 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
           )}
         </Button>
       </div>
-      <div className="flex-1 overflow-hidden">
-        <p className={cn("font-semibold truncate", isActive && 'text-primary')}>{track.title}</p>
-        <p className="text-sm text-muted-foreground truncate">{track.artist}</p>
+      <div className="flex-1 overflow-hidden" onClick={handlePlayClick}>
+        <p className={cn("font-semibold truncate cursor-pointer", isActive && 'text-primary')}>{track.title}</p>
+        <p className="text-sm text-muted-foreground truncate cursor-pointer">{track.artist}</p>
       </div>
       <div className="text-sm text-muted-foreground">
         {formatDuration(track.duration)}
@@ -82,5 +90,3 @@ export function TrackItem({ track, onPlay, context }: TrackItemProps) {
     </div>
   );
 }
-
-    

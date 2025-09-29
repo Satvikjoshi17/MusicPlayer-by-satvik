@@ -1,9 +1,7 @@
-
 'use client';
 
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
-import { placeholderImages } from '@/lib/placeholder-images';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { usePlayer } from '@/hooks/use-player';
@@ -16,6 +14,7 @@ import { MoreVertical, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TrackActions } from '@/components/music/track-actions';
 import { TrackCard } from '@/components/music/track-card';
+import { placeholderImages } from '@/lib/placeholder-images';
 
 export default function HomePage() {
   const { playTrack } = usePlayer();

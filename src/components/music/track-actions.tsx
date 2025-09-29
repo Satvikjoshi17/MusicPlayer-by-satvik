@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Download, MoreVertical, ListPlus, Plus, Trash2, CheckCircle, ListVideo } from 'lucide-react';
+import { Download, ListPlus, Plus, Trash2, CheckCircle, ListVideo } from 'lucide-react';
 import type { DbPlaylist, Track } from '@/lib/types';
 import { usePlayer } from '@/hooks/use-player';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -299,5 +299,3 @@ export function TrackActions({ track, context, children }: TrackActionsProps) {
     </>
   );
 }
-
-    

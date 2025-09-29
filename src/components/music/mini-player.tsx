@@ -38,7 +38,9 @@ export function MiniPlayer() {
   const fallbackImage = placeholderImages[0];
 
   return (
-    <div className={cn(
+    <div 
+      key={currentTrack.id} // Force re-mount on track change
+      className={cn(
         "fixed left-0 right-0 z-50",
         isMobile ? 'bottom-20' : 'bottom-0',
         'md:bottom-auto md:top-auto'
