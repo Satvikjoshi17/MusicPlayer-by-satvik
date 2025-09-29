@@ -65,7 +65,7 @@ export async function searchTracks(query: string, signal?: AbortSignal): Promise
 
 export async function getStreamUrl(youtubeUrl: string, signal?: AbortSignal): Promise<StreamResponse> {
   const url = `${API_BASE_URL}/api/stream?url=${encodeURIComponent(youtubeUrl)}`;
-  const response = await fetchWithTimeout(url, { signal }, 30000); 
+  const response = await fetchWithTimeout(url, { signal }, 60000); // Increased timeout to 60 seconds
   if (!response.ok) {
     const errorBody = await response.text();
     console.error("Stream API returned an error:", response.status, errorBody);
