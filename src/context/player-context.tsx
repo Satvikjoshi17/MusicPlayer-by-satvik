@@ -242,17 +242,10 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
     loadAndPlay();
 
-    // Preload next track
-    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack.id);
-    const nextTrack = activeQueue[currentIndex + 1];
-    if (nextTrack) {
-      preloadStream(nextTrack.url);
-    }
-
     return () => {
       abortController.abort();
     };
-  }, [currentTrack, audioRef, toast, activeQueue]);
+  }, [currentTrack, audioRef, toast]);
 
 
   const addToQueue = (track: Track) => {
@@ -512,3 +505,5 @@ export function PlayerWrapper({ children }: { children: ReactNode }) {
     </PlayerProvider>
   )
 }
+
+    
