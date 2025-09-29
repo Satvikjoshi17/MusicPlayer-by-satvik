@@ -9,10 +9,10 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { getStreamUrl } from '@/lib/api';
 import type { Track, DbPlaylist, DbDownload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
+import { getStream, cancelPreloading, preloadStream } from '@/lib/stream-cache';
 
 export type LoopMode = 'off' | 'queue' | 'single';
 
@@ -71,6 +71,8 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   const [isSeeking, setIsSeeking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
+
   const addTrackToRecents = async (track: Track) => {
     try {
       await db.recent.put({
@@ -84,6 +86,9 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
   };
   
   const playTrack = useCallback((track: Track, newQueue: Track[] = [], sourceInfo: PlayerContextSource = { type: 'unknown' }) => {
+    // Cancel any ongoing preloading since the user made a choice
+    cancelPreloading();
+    
     const isNewContext = JSON.stringify(source) !== JSON.stringify(sourceInfo) || newQueue.map(t => t.id).join() !== queue.map(t => t.id).join();
     
     let targetQueue: Track[];
@@ -116,7 +121,6 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     if (isSkippingRef.current) return;
     isSkippingRef.current = true;
     
-    const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
     const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
     
     let nextTrack: Track | undefined;
@@ -143,7 +147,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
        }
     }
     setTimeout(() => { isSkippingRef.current = false; }, 500);
-  }, [isShuffled, shuffledPlayQueue, playQueue, loopMode, queue, playTrack, source, duration, audioRef, currentTrack]);
+  }, [activeQueue, isShuffled, loopMode, queue, playTrack, source, duration, audioRef, currentTrack]);
 
   const skipPrev = useCallback(() => {
     if (isSkippingRef.current) return;
@@ -154,8 +158,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
       setTimeout(() => { isSkippingRef.current = false; }, 500);
       return;
     }
-
-    const activeQueue = isShuffled ? shuffledPlayQueue : playQueue;
+    
     const currentIndex = activeQueue.findIndex(t => t.id === currentTrack?.id);
     
     let prevTrack: Track | undefined;
@@ -171,7 +174,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
         if (audioRef.current) audioRef.current.currentTime = 0;
     }
     setTimeout(() => { isSkippingRef.current = false; }, 500);
-  }, [currentTrack, queue, playTrack, loopMode, source, audioRef, isShuffled, playQueue, shuffledPlayQueue]);
+  }, [currentTrack, queue, playTrack, loopMode, source, audioRef, activeQueue]);
   
   const handleTrackEnd = useCallback(() => {
     if (loopMode === 'single' && currentTrack && audioRef.current) {
@@ -211,7 +214,8 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
           streamUrl = URL.createObjectURL(downloadedTrack.blob);
           currentBlobUrl.current = streamUrl;
         } else {
-          const response = await getStreamUrl(currentTrack.url, abortController.signal);
+          // Use the new stream cache
+          const response = await getStream(currentTrack.url, abortController.signal);
           streamUrl = response.streamUrl;
         }
         
@@ -238,10 +242,17 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
 
     loadAndPlay();
 
+    // Preload next track
+    const currentIndex = activeQueue.findIndex(t => t.id === currentTrack.id);
+    const nextTrack = activeQueue[currentIndex + 1];
+    if (nextTrack) {
+      preloadStream(nextTrack.url);
+    }
+
     return () => {
       abortController.abort();
     };
-  }, [currentTrack, audioRef, toast]);
+  }, [currentTrack, audioRef, toast, activeQueue]);
 
 
   const addToQueue = (track: Track) => {
@@ -460,7 +471,7 @@ export function PlayerProvider({ children, audioRef }: { children: ReactNode, au
     audioRef,
     currentTrack,
     queue,
-    playQueue: isShuffled ? shuffledPlayQueue : playQueue,
+    playQueue: activeQueue,
     source,
     isPlaying,
     duration,

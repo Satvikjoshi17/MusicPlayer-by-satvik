@@ -4,12 +4,14 @@ import type { SearchResponse, StreamResponse, Track } from './types';
 const API_BASE_URL = 'https://musicplayerbackend-us5o.onrender.com';
 const FETCH_TIMEOUT = 15000; // 15 seconds
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = FETCH_TIMEOUT) {
+export async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = FETCH_TIMEOUT): Promise<Response> {
   const controller = new AbortController();
   const { signal: timeoutSignal } = controller;
-  options.signal = options.signal ? anySignal([options.signal, timeoutSignal]) : timeoutSignal;
+  
+  const signal = options.signal ? anySignal([options.signal, timeoutSignal]) : timeoutSignal;
+  options.signal = signal;
 
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const timeoutId = setTimeout(() => controller.abort(new Error('Request timed out.')), timeout);
 
   try {
     const response = await fetch(url, options);
@@ -18,22 +20,23 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      if (options.signal?.aborted) {
-        throw error;
+      // If the abort was initiated by our timeout, throw the timeout error
+      if (!options.signal?.aborted) {
+        throw new Error('Request timed out. The server is taking too long to respond.');
       }
-      throw new Error('Request timed out. The server is taking too long to respond.');
     }
-    throw new Error('Request failed: ' + error.message);
+    // Re-throw original error if it's not a timeout
+    throw error;
   }
 }
 
 // Helper to combine multiple AbortSignals
-function anySignal(signals: AbortSignal[]) {
+function anySignal(signals: AbortSignal[]): AbortSignal {
     const controller = new AbortController();
     for (const signal of signals) {
         if (signal.aborted) {
             controller.abort(signal.reason);
-            return signal;
+            return controller.signal;
         }
         signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true, signal: controller.signal });
     }

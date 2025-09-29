@@ -8,6 +8,7 @@ import { TrackItem } from "@/components/music/track-item"
 import { TrackListSkeleton } from "@/components/music/track-list-skeleton"
 import { usePlayer } from "@/hooks/use-player"
 import { Music, ServerCrash } from "lucide-react"
+import { preloadStream } from "@/lib/stream-cache";
 
 type SearchResultsProps = {
   query: string;
@@ -47,6 +48,9 @@ export function SearchResults({ query }: SearchResultsProps) {
         );
         if (!newAbortController.signal.aborted) {
           setResults(searchResults);
+          // Preload first two search results
+          if (searchResults.length > 0) preloadStream(searchResults[0].url);
+          if (searchResults.length > 1) preloadStream(searchResults[1].url);
         }
       } catch (e: any) {
         if (e.name !== "AbortError" && !newAbortController.signal.aborted) {
